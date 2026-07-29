@@ -1,8 +1,9 @@
 """
 A minimal AI agent: LLM + tools + a loop + a workspace UI.
 
-Runs on Streamlit Community Cloud (free) using a free LLM API.
-Set GROQ_API_KEY in the app's Secrets before running.
+Runs on Streamlit Community Cloud (free). 
+Starts with Gemini; on quota exhaustion, falls back to Groq.
+Set GEMINI_API_KEY and GROQ_API_KEY in the app's Secrets.
 """
 
 import ast
@@ -16,10 +17,6 @@ import streamlit as st
 from openai import OpenAI
 
 st.set_page_config(page_title="My First Agent", page_icon="🤖", layout="wide")
-
-MODEL = "mixtral-8x7b-32768"
-BASE_URL = "https://api.groq.com/openai/v1"
-SECRET_NAME = "GROQ_API_KEY"
 
 MAX_STEPS = 8
 MAX_TOOL_FAILURES = 2
@@ -41,30 +38,71 @@ SYSTEM_PROMPT = (
 )
 
 
-def get_api_key():
-    try:
-        return st.secrets[SECRET_NAME]
-    except Exception:
-        return os.environ.get(SECRET_NAME)
+# ---------------------------------------------------------------------------
+# Provider logic: Gemini primary, Groq fallback
+# ---------------------------------------------------------------------------
 
 
-@st.cache_resource
-def get_client(api_key: str, base_url: str) -> OpenAI:
-    return OpenAI(api_key=api_key, base_url=base_url)
+def get_gemini_client():
+    """Create Gemini client if API key exists."""
+    api_key = os.environ.get("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
+    if api_key:
+        return OpenAI(
+            api_key=api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+    return None
 
 
-API_KEY = get_api_key()
-if not API_KEY:
+def get_groq_client():
+    """Create Groq client if API key exists."""
+    api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
+    if api_key:
+        return OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+    return None
+
+
+def init_provider_state():
+    """Initialize provider state in session."""
+    if "provider" not in st.session_state:
+        st.session_state.provider = "gemini"  # start with Gemini
+    if "switched_to_groq" not in st.session_state:
+        st.session_state.switched_to_groq = False
+
+
+def get_active_client_and_model():
+    """Return (client, model_name) based on current provider."""
+    init_provider_state()
+    
+    if st.session_state.provider == "gemini":
+        client = get_gemini_client()
+        if client:
+            return client, "gemini-3-flash-preview", "gemini"
+    
+    # Fallback to Groq
+    client = get_groq_client()
+    if client:
+        # Use smaller model by default, can fall back to 120b if needed
+        return client, "openai/gpt-oss-20b", "groq"
+    
+    return None, None, None
+
+
+# Validate that we have at least one key
+gemini_available = bool(os.environ.get("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", ""))
+groq_available = bool(os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", ""))
+
+if not gemini_available and not groq_available:
     st.error(
-        f"No API key found. Add a secret named {SECRET_NAME} in "
+        "No API keys found. Add GEMINI_API_KEY and/or GROQ_API_KEY in "
         "Manage app → Settings → Secrets, then reboot the app."
     )
     st.stop()
 
-client = get_client(API_KEY, BASE_URL)
+init_provider_state()
 
 # ---------------------------------------------------------------------------
-# Tools (same as before)
+# Tools
 # ---------------------------------------------------------------------------
 
 _OPS = {
@@ -208,7 +246,7 @@ TOOL_IMPLS = {
 
 
 # ---------------------------------------------------------------------------
-# Agent loop (same core logic)
+# Agent loop
 # ---------------------------------------------------------------------------
 
 
@@ -232,7 +270,7 @@ def _tool_call_payload(tool_call) -> dict:
     return payload
 
 
-def _final_answer_without_tools(messages: list) -> str:
+def _final_answer_without_tools(messages: list, client, model: str) -> str:
     closing = {
         "role": "user",
         "content": (
@@ -242,7 +280,7 @@ def _final_answer_without_tools(messages: list) -> str:
     }
     try:
         response = client.chat.completions.create(
-            model=MODEL,
+            model=model,
             messages=messages + [closing],
         )
         return response.choices[0].message.content or "(empty response)"
@@ -260,16 +298,43 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
     disabled = set()
 
     for step_num in range(MAX_STEPS):
+        # Get active client and model
+        client, model, provider = get_active_client_and_model()
+        if not client:
+            return "No LLM client available. Check your API keys.", trace
+
         available = [t for t in TOOLS if t["function"]["name"] not in disabled]
 
-        request = {"model": MODEL, "messages": messages}
+        request = {"model": model, "messages": messages}
         if available:
             request["tools"] = available
 
         try:
             response = client.chat.completions.create(**request)
         except Exception as exc:
-            return f"The model call failed: {exc}", trace
+            error_str = str(exc)
+            
+            # Detect Gemini quota exhaustion and switch to Groq
+            if "quota" in error_str.lower() and st.session_state.provider == "gemini":
+                if not st.session_state.switched_to_groq:
+                    st.session_state.provider = "groq"
+                    st.session_state.switched_to_groq = True
+                    trace.append(f"[switch] Gemini quota exhausted. Switching to Groq.")
+                    
+                    # Retry with Groq
+                    client, model, provider = get_active_client_and_model()
+                    if not client:
+                        return "Groq key not configured. Cannot continue.", trace
+                    
+                    request["model"] = model
+                    try:
+                        response = client.chat.completions.create(**request)
+                    except Exception as retry_exc:
+                        return f"Groq call also failed: {retry_exc}", trace
+                else:
+                    return f"The model call failed: {exc}", trace
+            else:
+                return f"The model call failed: {exc}", trace
 
         message = response.choices[0].message
 
@@ -319,11 +384,16 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
                 }
             )
 
-    return _final_answer_without_tools(messages), trace
+    # Out of steps — get a final answer without tools
+    client, model, provider = get_active_client_and_model()
+    if client:
+        return _final_answer_without_tools(messages, client, model), trace
+    else:
+        return "Ran out of steps and no client available.", trace
 
 
 # ---------------------------------------------------------------------------
-# UI — redesigned workspace layout
+# UI
 # ---------------------------------------------------------------------------
 
 st.title("🤖 Agent Workspace")
@@ -332,8 +402,18 @@ with st.sidebar:
     st.subheader("About")
     st.caption(
         "An AI agent that decides when to use tools: arithmetic, time lookup, "
-        "web search. Each tool call and result is shown in order."
+        "web search. Starts with Gemini; falls back to Groq on quota exhaustion."
     )
+    st.divider()
+    
+    # Show active provider
+    init_provider_state()
+    provider_name = st.session_state.provider.upper()
+    if st.session_state.switched_to_groq:
+        st.write(f"**Provider:** {provider_name} (switched from Gemini)")
+    else:
+        st.write(f"**Provider:** {provider_name}")
+    
     st.divider()
     st.subheader("How it works")
     st.write(
@@ -346,12 +426,14 @@ with st.sidebar:
     st.divider()
     if st.button("🗑️ Clear history"):
         st.session_state.history = []
+        st.session_state.switched_to_groq = False
+        st.session_state.provider = "gemini"
         st.rerun()
 
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Show conversation history (compact, scrollable area)
+# Show conversation history
 if st.session_state.history:
     st.subheader("Conversation history")
     history_container = st.container(border=True, height=200)
@@ -360,7 +442,8 @@ if st.session_state.history:
             if turn["role"] == "user":
                 st.write(f"**You:** {turn['content']}")
             else:
-                st.write(f"**Agent:** {turn['content'][:200]}…" if len(turn["content"]) > 200 else f"**Agent:** {turn['content']}")
+                preview = turn['content'][:200] + "…" if len(turn['content']) > 200 else turn['content']
+                st.write(f"**Agent:** {preview}")
     st.divider()
 
 # Input
@@ -371,7 +454,7 @@ if prompt:
     # Add to history
     st.session_state.history.append({"role": "user", "content": prompt})
 
-    # Display the current question prominently
+    # Display the current question
     st.subheader("Your question")
     st.write(prompt)
     st.divider()
@@ -398,16 +481,15 @@ if prompt:
 
                     st.code(f"{tool_name}({tool_args})", language="python")
 
-                    # Show result with styling
                     if tool_result.startswith(TOOL_ERROR):
                         st.error(tool_result[len(TOOL_ERROR):].strip())
                     else:
                         st.info(tool_result[:500] + ("…" if len(tool_result) > 500 else ""))
             else:
-                # Debug lines
+                # Debug/system lines like [switch]
                 st.caption(step)
 
-    # Display the final answer prominently
+    # Display the final answer
     st.divider()
     st.subheader("Answer")
     answer_container = st.container(border=True)
