@@ -1,8 +1,8 @@
 """
-A minimal AI agent: LLM + tools + a loop + a chat UI.
+A minimal AI agent: LLM + tools + a loop + a workspace UI.
 
 Runs on Streamlit Community Cloud (free) using a free LLM API.
-Set GEMINI_API_KEY in the app's Secrets before running.
+Set GROQ_API_KEY in the app's Secrets before running.
 """
 
 import ast
@@ -15,33 +15,15 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 from openai import OpenAI
 
-st.set_page_config(page_title="My First Agent", page_icon="🤖")
+st.set_page_config(page_title="My First Agent", page_icon="🤖", layout="wide")
 
-# ---------------------------------------------------------------------------
-# 1. LLM client
-#
-# We talk to Gemini through its OpenAI-compatible endpoint, so the request
-# format is the widely-documented OpenAI one.
-#
-# PROVIDER SWAP — if Gemini starts failing, change these three constants and
-# add the new key in Streamlit's Secrets box:
-#
-#   Groq (free, no thought-signature weirdness):
-#       MODEL = "llama-3.3-70b-versatile"   # check console.groq.com/docs/models
-#       BASE_URL = "https://api.groq.com/openai/v1"
-#       SECRET_NAME = "GROQ_API_KEY"
-# ---------------------------------------------------------------------------
+MODEL = "llama-3.3-70b-versatile"
+BASE_URL = "https://api.groq.com/openai/v1"
+SECRET_NAME = "GROQ_API_KEY"
 
-MODEL = "gemini-3-flash-preview"
-BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-SECRET_NAME = "GEMINI_API_KEY"
+MAX_STEPS = 8
+MAX_TOOL_FAILURES = 2
 
-MAX_STEPS = 8           # hard stop so a confused agent can't loop forever
-MAX_TOOL_FAILURES = 2   # after this many failures, a tool is taken away
-
-# Tools prefix soft failures with this so the loop can tell "the service is
-# down" apart from "the model asked a bad question". Without that distinction
-# the model retries a dead tool until the step cap.
 TOOL_ERROR = "TOOL_ERROR:"
 
 SYSTEM_PROMPT = (
@@ -60,7 +42,6 @@ SYSTEM_PROMPT = (
 
 
 def get_api_key():
-    """Read the key from Streamlit secrets, falling back to an env var locally."""
     try:
         return st.secrets[SECRET_NAME]
     except Exception:
@@ -69,7 +50,6 @@ def get_api_key():
 
 @st.cache_resource
 def get_client(api_key: str, base_url: str) -> OpenAI:
-    # Cached so we don't rebuild the client on every Streamlit rerun.
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
@@ -84,12 +64,9 @@ if not API_KEY:
 client = get_client(API_KEY, BASE_URL)
 
 # ---------------------------------------------------------------------------
-# 2. Tools
+# Tools (same as before)
 # ---------------------------------------------------------------------------
 
-# Only these operators are allowed. We walk the parsed syntax tree instead of
-# calling eval(), because this app is reachable by anyone with the URL and
-# eval() on user input is remote code execution.
 _OPS = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
@@ -123,22 +100,14 @@ def calculate(expression: str) -> str:
 def get_current_time(timezone: str = "UTC") -> str:
     try:
         now = datetime.datetime.now(ZoneInfo(timezone))
-        # Include the offset: %Z alone gives "PST" for Asia/Manila (Philippine
-        # Standard Time), which reads like US Pacific and misleads the model.
         return now.strftime("%Y-%m-%d %H:%M:%S %Z (UTC%z)")
     except Exception as exc:
         return f"{TOOL_ERROR} could not read the time for {timezone!r}: {exc}"
 
 
 def search_web(query: str, max_results: int = 5) -> str:
-    """Search the web via ddgs (no API key needed).
-
-    Most of this function is failure handling, and that is the point: unlike
-    the other two tools, this one depends on a service we don't control and
-    that rate-limits shared cloud IPs.
-    """
     try:
-        from ddgs import DDGS  # renamed from duckduckgo-search; old name warns
+        from ddgs import DDGS
     except ImportError:
         return f"{TOOL_ERROR} the 'ddgs' package is missing from requirements.txt."
 
@@ -159,7 +128,6 @@ def search_web(query: str, max_results: int = 5) -> str:
     lines = []
     for i, hit in enumerate(hits, 1):
         title = hit.get("title") or "(no title)"
-        # Key name has moved between versions, so accept either.
         url = hit.get("href") or hit.get("url") or ""
         snippet = (hit.get("body") or "").strip().replace("\n", " ")
         if len(snippet) > 300:
@@ -169,8 +137,6 @@ def search_web(query: str, max_results: int = 5) -> str:
     return "\n".join(lines)
 
 
-# The schema is what the model actually sees. Vague descriptions here are the
-# most common reason an agent picks the wrong tool or fills in bad arguments.
 TOOLS = [
     {
         "type": "function",
@@ -242,19 +208,11 @@ TOOL_IMPLS = {
 
 
 # ---------------------------------------------------------------------------
-# 3. The agent loop
+# Agent loop (same core logic)
 # ---------------------------------------------------------------------------
 
 
 def _tool_call_payload(tool_call) -> dict:
-    """Rebuild a tool call for the next request, keeping vendor extras.
-
-    Gemini 3 "thinks" before calling a tool, signs that reasoning, and hangs
-    the signature off a non-standard field (extra_content.google.
-    thought_signature). It must be echoed back verbatim or the next request is
-    rejected with a 400. A stock OpenAI client silently drops the field —
-    since we build this dict ourselves, we can keep it.
-    """
     payload = {
         "id": tool_call.id,
         "type": "function",
@@ -263,28 +221,18 @@ def _tool_call_payload(tool_call) -> dict:
             "arguments": tool_call.function.arguments,
         },
     }
-
     extra = getattr(tool_call, "extra_content", None)
     if extra is None:
         model_extra = getattr(tool_call, "model_extra", None) or {}
         extra = model_extra.get("extra_content")
-
     if extra is not None:
-        # Pydantic objects need flattening before they can be re-serialised.
         if hasattr(extra, "model_dump"):
             extra = extra.model_dump(exclude_none=True)
         payload["extra_content"] = extra
-
     return payload
 
 
 def _final_answer_without_tools(messages: list) -> str:
-    """Last resort: ask for a plain answer with no tools attached.
-
-    Running out of steps usually means the model is stuck in a retry cycle,
-    not that the question is unanswerable. Taking the tools away forces it to
-    report what it already gathered, which beats an apology.
-    """
     closing = {
         "role": "user",
         "content": (
@@ -303,19 +251,15 @@ def _final_answer_without_tools(messages: list) -> str:
 
 
 def run_agent(user_message: str, history: list) -> tuple[str, list]:
-    """Call the model; run any tool it asks for; feed the result back. Repeat.
-
-    Returns (answer, trace) so the UI can show what the agent actually did.
-    """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
     trace = []
-    failures = {}      # tool name -> consecutive failure count
-    disabled = set()   # tools withdrawn after too many failures
+    failures = {}
+    disabled = set()
 
-    for _ in range(MAX_STEPS):
+    for step_num in range(MAX_STEPS):
         available = [t for t in TOOLS if t["function"]["name"] not in disabled]
 
         request = {"model": MODEL, "messages": messages}
@@ -329,7 +273,6 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
 
         message = response.choices[0].message
 
-        # No tool requested — this is the final answer.
         if not message.tool_calls:
             return (message.content or "(empty response)"), trace
 
@@ -352,14 +295,10 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
                 try:
                     result = impl(**json.loads(raw_args))
                 except Exception as exc:
-                    # Hand the error back to the model rather than crashing —
-                    # it can usually fix its own arguments and retry.
                     result = f"{TOOL_ERROR} {exc}"
 
             result = str(result)
 
-            # Circuit breaker: a tool that keeps failing gets taken away, so
-            # the model stops seeing it as an option and moves on.
             if result.startswith(TOOL_ERROR):
                 failures[name] = failures.get(name, 0) + 1
                 if failures[name] >= MAX_TOOL_FAILURES:
@@ -368,11 +307,10 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
                         " This tool is now unavailable for the rest of this "
                         "question. Answer using what you already have."
                     )
-                    trace.append(f"[loop] disabled {name} after repeated failures")
             else:
                 failures[name] = 0
 
-            trace.append(f"{name}({raw_args})\n  -> {result}")
+            trace.append({"tool": name, "args": raw_args, "result": result})
             messages.append(
                 {
                     "role": "tool",
@@ -381,58 +319,95 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
                 }
             )
 
-    trace.append(f"[loop] hit the {MAX_STEPS}-step cap; answering without tools")
     return _final_answer_without_tools(messages), trace
 
 
 # ---------------------------------------------------------------------------
-# 4. UI
-#
-# Streamlit reruns this whole file on every interaction, so the conversation
-# lives in session_state rather than in a local variable.
+# UI — redesigned workspace layout
 # ---------------------------------------------------------------------------
 
-st.title("🤖 My First Agent")
-st.caption(f"Tools: arithmetic, current time, web search. Model: {MODEL}")
+st.title("🤖 Agent Workspace")
 
 with st.sidebar:
-    st.subheader("What this is")
-    st.write(
-        "An LLM that can call Python functions. Ask something that needs a "
-        "tool, then open **Tools used** under the answer to see what it did."
-    )
+    st.subheader("About")
     st.caption(
-        "Search results come from the open web and are not verified. "
-        "Check the cited links before relying on anything."
+        "An AI agent that decides when to use tools: arithmetic, time lookup, "
+        "web search. Each tool call and result is shown in order."
     )
-    if st.button("Clear conversation"):
+    st.divider()
+    st.subheader("How it works")
+    st.write(
+        "1. You ask a question\n"
+        "2. The agent decides what tools it needs\n"
+        "3. Each tool call and result appear here\n"
+        "4. The agent sees the results and decides next\n"
+        "5. Finally, it answers"
+    )
+    st.divider()
+    if st.button("🗑️ Clear history"):
         st.session_state.history = []
         st.rerun()
 
 if "history" not in st.session_state:
     st.session_state.history = []
 
-for turn in st.session_state.history:
-    with st.chat_message(turn["role"]):
-        st.markdown(turn["content"])
+# Show conversation history (compact, scrollable area)
+if st.session_state.history:
+    st.subheader("Conversation history")
+    history_container = st.container(border=True, height=200)
+    with history_container:
+        for turn in st.session_state.history:
+            if turn["role"] == "user":
+                st.write(f"**You:** {turn['content']}")
+            else:
+                st.write(f"**Agent:** {turn['content'][:200]}…" if len(turn["content"]) > 200 else f"**Agent:** {turn['content']}")
+    st.divider()
 
-prompt = st.chat_input("Ask me something…")
+# Input
+st.subheader("New question")
+prompt = st.chat_input("Ask me something…", key="main_input")
 
 if prompt:
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    # Pass the history from before this message, so the model has context.
-    prior = list(st.session_state.history)
+    # Add to history
     st.session_state.history.append({"role": "user", "content": prompt})
 
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking…"):
-            answer, trace = run_agent(prompt, prior)
-        st.markdown(answer)
-        if trace:
-            with st.expander(f"Tools used ({len(trace)})"):
-                for line in trace:
-                    st.code(line, language="text")
+    # Run the agent
+    with st.spinner("Thinking…"):
+        answer, trace = run_agent(prompt, [t for t in st.session_state.history[:-1]])
 
+    # Display the thinking process
+    if trace:
+        st.subheader("Thinking process")
+        for i, step in enumerate(trace, 1):
+            if isinstance(step, dict) and "tool" in step:
+                tool_name = step["tool"]
+                tool_args = step["args"]
+                tool_result = step["result"]
+
+                with st.container(border=True):
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        st.write(f"**Step {i}**")
+                    with col2:
+                        st.write(f"**{tool_name}**")
+
+                    st.code(f"{tool_name}({tool_args})", language="python")
+
+                    # Show result with styling
+                    if tool_result.startswith(TOOL_ERROR):
+                        st.error(tool_result[len(TOOL_ERROR):].strip())
+                    else:
+                        st.info(tool_result[:500] + ("…" if len(tool_result) > 500 else ""))
+            else:
+                # Debug lines
+                st.caption(step)
+
+    # Display the final answer prominently
+    st.divider()
+    st.subheader("Answer")
+    answer_container = st.container(border=True)
+    with answer_container:
+        st.write(answer)
+
+    # Add answer to history
     st.session_state.history.append({"role": "assistant", "content": answer})
