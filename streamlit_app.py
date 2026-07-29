@@ -1,5 +1,6 @@
 """
 A minimal AI agent: LLM + tools + a loop + a chat bubble UI.
+Now with persona selection from MD files.
 
 Runs on Streamlit Community Cloud (free). 
 Starts with Gemini; on quota exhaustion, falls back to Groq.
@@ -23,7 +24,8 @@ MAX_TOOL_FAILURES = 2
 
 TOOL_ERROR = "TOOL_ERROR:"
 
-SYSTEM_PROMPT = (
+# Default system prompt (used if no personas folder or persona selected)
+DEFAULT_SYSTEM_PROMPT = (
     "You are a helpful assistant with access to tools. "
     "Use a tool when it gives you a more accurate answer than guessing — "
     "especially for arithmetic, for the current date or time, and for anything "
@@ -36,6 +38,35 @@ SYSTEM_PROMPT = (
     "Never invent a tool result. If a tool returns an error, say so plainly "
     "rather than guessing an answer."
 )
+
+
+# ---------------------------------------------------------------------------
+# Persona management
+# ---------------------------------------------------------------------------
+
+
+def load_personas():
+    """Load all .md files from the personas folder."""
+    personas = {}
+    personas_dir = "personas"
+    
+    if os.path.isdir(personas_dir):
+        try:
+            for filename in os.listdir(personas_dir):
+                if filename.endswith(".md"):
+                    filepath = os.path.join(personas_dir, filename)
+                    try:
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            content = f.read()
+                            # Use filename without .md as the key
+                            persona_name = filename[:-3]
+                            personas[persona_name] = content
+                    except Exception as e:
+                        st.warning(f"Could not load {filename}: {e}")
+        except Exception as e:
+            st.warning(f"Error reading personas folder: {e}")
+    
+    return personas
 
 
 # ---------------------------------------------------------------------------
@@ -286,8 +317,8 @@ def _final_answer_without_tools(messages: list, client, model: str) -> str:
         return f"Ran out of steps, and the final summary call also failed: {exc}"
 
 
-def run_agent(user_message: str, history: list) -> tuple[str, list]:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str, list]:
+    messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
@@ -387,7 +418,7 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
 
 
 # ---------------------------------------------------------------------------
-# Chat Bubble UI
+# Chat Bubble UI with Persona Selection
 # ---------------------------------------------------------------------------
 
 st.title("🤖 Agent Chat")
@@ -396,6 +427,24 @@ st.title("🤖 Agent Chat")
 with st.sidebar:
     st.subheader("About")
     st.caption("Chat with an AI agent that can search, calculate, and look up time.")
+    st.divider()
+    
+    # Persona selection
+    personas = load_personas()
+    if personas:
+        st.subheader("Persona")
+        selected_persona = st.selectbox(
+            "Choose a persona:",
+            list(personas.keys()),
+            key="persona_selector"
+        )
+        system_prompt = personas[selected_persona]
+        st.caption(f"*Using: {selected_persona}*")
+    else:
+        selected_persona = "default"
+        system_prompt = DEFAULT_SYSTEM_PROMPT
+        st.caption("*No personas found. Using default.*")
+    
     st.divider()
     
     init_provider_state()
@@ -443,6 +492,13 @@ if prompt := st.chat_input("Ask me anything…"):
     # Add to history
     st.session_state.messages.append({"role": "user", "content": prompt})
     
+    # Get the current system prompt (may have changed if persona was switched)
+    personas = load_personas()
+    if personas and "persona_selector" in st.session_state:
+        selected_persona = st.session_state.persona_selector
+        if selected_persona in personas:
+            system_prompt = personas[selected_persona]
+    
     # Run agent
     with st.spinner("Thinking…"):
         # Convert messages to format expected by run_agent
@@ -450,7 +506,7 @@ if prompt := st.chat_input("Ask me anything…"):
             {"role": msg["role"], "content": msg["content"]}
             for msg in st.session_state.messages[:-1]  # Exclude the just-added user message
         ]
-        answer, trace = run_agent(prompt, history_for_agent)
+        answer, trace = run_agent(prompt, history_for_agent, system_prompt)
     
     # Display agent response
     with st.chat_message("assistant"):
