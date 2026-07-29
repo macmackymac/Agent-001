@@ -17,7 +17,7 @@ from openai import OpenAI
 
 st.set_page_config(page_title="My First Agent", page_icon="🤖", layout="wide")
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "mixtral-8x7b-32768"
 BASE_URL = "https://api.groq.com/openai/v1"
 SECRET_NAME = "GROQ_API_KEY"
 
