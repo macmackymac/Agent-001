@@ -1,5 +1,5 @@
 """
-A minimal AI agent: LLM + tools + a loop + a workspace UI.
+A minimal AI agent: LLM + tools + a loop + a chat bubble UI.
 
 Runs on Streamlit Community Cloud (free). 
 Starts with Gemini; on quota exhaustion, falls back to Groq.
@@ -65,7 +65,7 @@ def get_groq_client():
 def init_provider_state():
     """Initialize provider state in session."""
     if "provider" not in st.session_state:
-        st.session_state.provider = "gemini"  # start with Gemini
+        st.session_state.provider = "gemini"
     if "switched_to_groq" not in st.session_state:
         st.session_state.switched_to_groq = False
 
@@ -79,10 +79,8 @@ def get_active_client_and_model():
         if client:
             return client, "gemini-3-flash-preview", "gemini"
     
-    # Fallback to Groq
     client = get_groq_client()
     if client:
-        # Use smaller model by default, can fall back to 120b if needed
         return client, "openai/gpt-oss-20b", "groq"
     
     return None, None, None
@@ -298,7 +296,6 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
     disabled = set()
 
     for step_num in range(MAX_STEPS):
-        # Get active client and model
         client, model, provider = get_active_client_and_model()
         if not client:
             return "No LLM client available. Check your API keys.", trace
@@ -314,14 +311,12 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
         except Exception as exc:
             error_str = str(exc)
             
-            # Detect Gemini quota exhaustion and switch to Groq
             if "quota" in error_str.lower() and st.session_state.provider == "gemini":
                 if not st.session_state.switched_to_groq:
                     st.session_state.provider = "groq"
                     st.session_state.switched_to_groq = True
                     trace.append(f"[switch] Gemini quota exhausted. Switching to Groq.")
                     
-                    # Retry with Groq
                     client, model, provider = get_active_client_and_model()
                     if not client:
                         return "Groq key not configured. Cannot continue.", trace
@@ -384,7 +379,6 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
                 }
             )
 
-    # Out of steps — get a final answer without tools
     client, model, provider = get_active_client_and_model()
     if client:
         return _final_answer_without_tools(messages, client, model), trace
@@ -393,108 +387,90 @@ def run_agent(user_message: str, history: list) -> tuple[str, list]:
 
 
 # ---------------------------------------------------------------------------
-# UI
+# Chat Bubble UI
 # ---------------------------------------------------------------------------
 
-st.title("🤖 Agent Workspace")
+st.title("🤖 Agent Chat")
 
+# Sidebar
 with st.sidebar:
     st.subheader("About")
-    st.caption(
-        "An AI agent that decides when to use tools: arithmetic, time lookup, "
-        "web search. Starts with Gemini; falls back to Groq on quota exhaustion."
-    )
+    st.caption("Chat with an AI agent that can search, calculate, and look up time.")
     st.divider()
     
-    # Show active provider
     init_provider_state()
     provider_name = st.session_state.provider.upper()
     if st.session_state.switched_to_groq:
-        st.write(f"**Provider:** {provider_name} (switched from Gemini)")
+        st.caption(f"**Provider:** {provider_name} (switched)")
     else:
-        st.write(f"**Provider:** {provider_name}")
+        st.caption(f"**Provider:** {provider_name}")
     
     st.divider()
-    st.subheader("How it works")
-    st.write(
-        "1. You ask a question\n"
-        "2. The agent decides what tools it needs\n"
-        "3. Each tool call and result appear here\n"
-        "4. The agent sees the results and decides next\n"
-        "5. Finally, it answers"
-    )
-    st.divider()
-    if st.button("🗑️ Clear history"):
-        st.session_state.history = []
+    if st.button("🗑️ Clear chat"):
+        st.session_state.messages = []
         st.session_state.switched_to_groq = False
         st.session_state.provider = "gemini"
         st.rerun()
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+# Initialize messages in session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Show conversation history
-if st.session_state.history:
-    st.subheader("Conversation history")
-    history_container = st.container(border=True, height=200)
-    with history_container:
-        for turn in st.session_state.history:
-            if turn["role"] == "user":
-                st.write(f"**You:** {turn['content']}")
-            else:
-                preview = turn['content'][:200] + "…" if len(turn['content']) > 200 else turn['content']
-                st.write(f"**Agent:** {preview}")
-    st.divider()
-
-# Input
-st.subheader("New question")
-prompt = st.chat_input("Ask me something…", key="main_input")
-
-if prompt:
-    # Add to history
-    st.session_state.history.append({"role": "user", "content": prompt})
-
-    # Display the current question
-    st.subheader("Your question")
-    st.write(prompt)
-    st.divider()
-
-    # Run the agent
-    with st.spinner("Thinking…"):
-        answer, trace = run_agent(prompt, [t for t in st.session_state.history[:-1]])
-
-    # Display the thinking process
-    if trace:
-        st.subheader("Thinking process")
-        for i, step in enumerate(trace, 1):
-            if isinstance(step, dict) and "tool" in step:
-                tool_name = step["tool"]
-                tool_args = step["args"]
-                tool_result = step["result"]
-
-                with st.container(border=True):
-                    col1, col2 = st.columns([1, 3])
-                    with col1:
-                        st.write(f"**Step {i}**")
-                    with col2:
-                        st.write(f"**{tool_name}**")
-
-                    st.code(f"{tool_name}({tool_args})", language="python")
-
-                    if tool_result.startswith(TOOL_ERROR):
-                        st.error(tool_result[len(TOOL_ERROR):].strip())
+# Display chat history as bubbles
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+        # Show thinking process if available and expanded
+        if message.get("trace"):
+            with st.expander("View reasoning process"):
+                for step in message["trace"]:
+                    if isinstance(step, dict) and "tool" in step:
+                        st.caption(f"**{step['tool']}**")
+                        st.code(f"{step['tool']}({step['args']})", language="python")
+                        if step["result"].startswith(TOOL_ERROR):
+                            st.error(step["result"][len(TOOL_ERROR):].strip())
+                        else:
+                            st.info(step["result"][:300] + ("…" if len(step["result"]) > 300 else ""))
                     else:
-                        st.info(tool_result[:500] + ("…" if len(tool_result) > 500 else ""))
-            else:
-                # Debug/system lines like [switch]
-                st.caption(step)
+                        st.caption(step)
 
-    # Display the final answer
-    st.divider()
-    st.subheader("Answer")
-    answer_container = st.container(border=True)
-    with answer_container:
-        st.write(answer)
-
-    # Add answer to history
-    st.session_state.history.append({"role": "assistant", "content": answer})
+# Chat input
+if prompt := st.chat_input("Ask me anything…"):
+    # Display user message
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    # Add to history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # Run agent
+    with st.spinner("Thinking…"):
+        # Convert messages to format expected by run_agent
+        history_for_agent = [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in st.session_state.messages[:-1]  # Exclude the just-added user message
+        ]
+        answer, trace = run_agent(prompt, history_for_agent)
+    
+    # Display agent response
+    with st.chat_message("assistant"):
+        st.markdown(answer)
+        if trace:
+            with st.expander("View reasoning process"):
+                for step in trace:
+                    if isinstance(step, dict) and "tool" in step:
+                        st.caption(f"**{step['tool']}**")
+                        st.code(f"{step['tool']}({step['args']})", language="python")
+                        if step["result"].startswith(TOOL_ERROR):
+                            st.error(step["result"][len(TOOL_ERROR):].strip())
+                        else:
+                            st.info(step["result"][:300] + ("…" if len(step["result"]) > 300 else ""))
+                    else:
+                        st.caption(step)
+    
+    # Add to history
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": answer,
+        "trace": trace
+    })
