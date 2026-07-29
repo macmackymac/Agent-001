@@ -25,7 +25,7 @@ st.set_page_config(page_title="My First Agent", page_icon="🤖")
 # later is a two-line change (see PROVIDER SWAP in the README).
 # ---------------------------------------------------------------------------
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3-flash-preview"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 MAX_STEPS = 6  # hard stop so a confused agent can't loop forever
 
