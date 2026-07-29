@@ -27,8 +27,8 @@ st.set_page_config(page_title="My First Agent", page_icon="🤖")
 # add the new key in Streamlit's Secrets box:
 #
 #   Groq (free, no thought-signature weirdness):
-#       MODEL       = "llama-3.3-70b-versatile"   # check console.groq.com/docs/models
-#       BASE_URL    = "https://api.groq.com/openai/v1"
+#       MODEL = "llama-3.3-70b-versatile"   # check console.groq.com/docs/models
+#       BASE_URL = "https://api.groq.com/openai/v1"
 #       SECRET_NAME = "GROQ_API_KEY"
 # ---------------------------------------------------------------------------
 
