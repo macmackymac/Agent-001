@@ -371,6 +371,11 @@ if prompt:
     # Add to history
     st.session_state.history.append({"role": "user", "content": prompt})
 
+    # Display the current question prominently
+    st.subheader("Your question")
+    st.write(prompt)
+    st.divider()
+
     # Run the agent
     with st.spinner("Thinking…"):
         answer, trace = run_agent(prompt, [t for t in st.session_state.history[:-1]])
