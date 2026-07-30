@@ -650,7 +650,7 @@ with st.sidebar:
             flow = get_google_auth_flow()
             if flow:
                 auth_url, state = flow.authorization_url(prompt="consent")
-                st.link_button("Authenticate with Google", auth_url)
+                st.markdown(f'<a href="{auth_url}" target="_blank" rel="noopener noreferrer"><button style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Authenticate with Google</button></a>', unsafe_allow_html=True)
                 st.info("After authenticating, come back here and you'll be connected.")
             else:
                 st.error("Google OAuth not configured. Check your Secrets.")
