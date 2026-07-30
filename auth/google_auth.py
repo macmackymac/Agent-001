@@ -33,3 +33,19 @@ def create_flow():
         scopes=SCOPES,
         redirect_uri=REDIRECT_URI,
     )
+def get_authorization_url():
+    """
+    Creates the Google authorization URL and stores the OAuth state.
+    """
+
+    flow = create_flow()
+
+    auth_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",
+    )
+
+    st.session_state["oauth_state"] = state
+
+    return auth_url
