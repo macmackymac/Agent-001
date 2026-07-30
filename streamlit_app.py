@@ -656,11 +656,6 @@ with st.sidebar:
         from auth.google_auth import get_authorization_url
 
         auth_url = get_authorization_url()
-        
-            st.write("DEBUG AUTH URL")
-
-            print(auth_url)
-            st.write(auth_url)
             
             st.markdown(
                 f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
