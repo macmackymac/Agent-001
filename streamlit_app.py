@@ -54,6 +54,13 @@ def get_google_auth_flow():
     if not creds_info:
         return None
     
+    # If creds_info is a string, parse it as JSON
+    if isinstance(creds_info, str):
+        try:
+            creds_info = json.loads(creds_info)
+        except json.JSONDecodeError:
+            return None
+    
     flow = Flow.from_client_config(
         creds_info,
         scopes=[
