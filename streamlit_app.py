@@ -643,16 +643,19 @@ with st.sidebar:
     st.divider()
     
     # Google authentication
-    st.subheader("Google Services")
-    init_google_session()
-    
-    if st.session_state.google_authenticated:
-        st.caption("✓ Gmail & Drive connected")
-        if st.button("Disconnect Google"):
-            st.session_state.google_authenticated = False
-            st.session_state.google_credentials = None
-            st.rerun()
-    else:
+st.subheader("Google Services")
+
+init_google_session()
+
+if st.session_state.google_authenticated:
+    st.caption("✅ Gmail & Drive connected")
+
+    if st.button("Disconnect Google"):
+        st.session_state.google_authenticated = False
+        st.session_state.google_credentials = None
+        st.rerun()
+
+else:
     from auth.google_auth import get_authorization_url
 
     try:
@@ -663,7 +666,7 @@ with st.sidebar:
         )
 
     except Exception as e:
-        st.error(f"Google OAuth not configured: {e}")
+        st.error(f"Google OAuth Error: {e}")
     
     st.divider()
     
