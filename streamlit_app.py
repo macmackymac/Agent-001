@@ -316,6 +316,26 @@ def _final_answer_without_tools(messages: list, client, model: str) -> str:
     except Exception as exc:
         return f"Ran out of steps, and the final summary call also failed: {exc}"
 
+def sanitize_messages_for_groq(messages: list) -> list:
+    """Strip Gemini-specific fields from messages before Groq retry.
+    
+    Gemini's extra_content is not understood by Groq's OpenAI-compatible API.
+    """
+    cleaned = []
+    for msg in messages:
+        msg_copy = dict(msg)  # shallow copy so we don't mutate the original
+        
+        # Remove extra_content from tool calls if present
+        if "tool_calls" in msg_copy:
+            msg_copy["tool_calls"] = [
+                {k: v for k, v in tc.items() if k != "extra_content"}
+                for tc in msg_copy["tool_calls"]
+            ]
+        
+        cleaned.append(msg_copy)
+    
+    return cleaned
+
 
 def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str, list]:
     messages = [{"role": "system", "content": system_prompt}]
@@ -347,12 +367,14 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
                     st.session_state.provider = "groq"
                     st.session_state.switched_to_groq = True
                     trace.append(f"[switch] Gemini quota exhausted. Switching to Groq.")
+                    messages = sanitize_messages_for_groq(messages)
                     
                     client, model, provider = get_active_client_and_model()
                     if not client:
                         return "Groq key not configured. Cannot continue.", trace
                     
                     request["model"] = model
+                    request["messages"] = messages
                     try:
                         response = client.chat.completions.create(**request)
                     except Exception as retry_exc:
