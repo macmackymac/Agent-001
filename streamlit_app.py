@@ -405,37 +405,31 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
             raw_args = tool_call.function.arguments or "{}"
             impl = TOOL_IMPLS.get(name)
 
-if impl is None:
-    result = f"{TOOL_ERROR} no tool named {name}."
-else:
-    # Check if we've already called this tool with the same arguments
-    cache_key = f"{name}:{raw_args}"
-    if cache_key in call_cache:
-        result = f"[Using cached result from earlier in this question]\n{call_cache[cache_key]}"
-        trace.append({
-            "tool": f"{name} (cached)",
-            "args": raw_args,
-            "result": "Returned cached result"
-        })
-    else:
-        try:
-            result = impl(**json.loads(raw_args))
-            call_cache[cache_key] = result  # Store it for next time
-        except Exception as exc:
-            result = f"{TOOL_ERROR} {exc}"
+            if impl is None:
+                result = f"{TOOL_ERROR} no tool named {name}."
+            else:
+                # Check if we've already called this tool with the same arguments
+                cache_key = f"{name}:{raw_args}"
+                if cache_key in call_cache:
+                    result = f"[Using cached result from earlier in this question]\n{call_cache[cache_key]}"
+                    trace.append({
+                        "tool": f"{name} (cached)",
+                        "args": raw_args,
+                        "result": "Returned cached result"
+                    })
+                else:
+                    try:
+                        result = impl(**json.loads(raw_args))
+                        call_cache[cache_key] = result  # Store it for next time
+                    except Exception as exc:
+                        result = f"{TOOL_ERROR} {exc}"
 
             result = str(result)
 
-if result.startswith(TOOL_ERROR):
+            if result.startswith(TOOL_ERROR):
                 failures[name] = failures.get(name, 0) + 1
                 if failures[name] >= MAX_TOOL_FAILURES:
                     disabled.add(name)
-                    result += (
-                        " This tool is now unavailable for the rest of this "
-                        "question. Answer using what you already have."
-                    )
-            else:
-                failures[name] = 0
                     result += (
                         " This tool is now unavailable for the rest of this "
                         "question. Answer using what you already have."
