@@ -352,7 +352,6 @@ TOOLS = [
             },
         },
     },
-,
     {
         "type": "function",
         "function": {
