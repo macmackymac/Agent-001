@@ -661,13 +661,15 @@ with st.sidebar:
                 include_granted_scopes="true",
                 prompt="consent"
             )
+        
             st.session_state.oauth_state = state
-            
+        
             st.link_button(
                 "📧 Connect Gmail & Google Drive",
                 auth_url,
-                use_container_width=True,
+                use_container_width=True
             )
+        
         else:
             st.error("Google OAuth not configured.")
     
