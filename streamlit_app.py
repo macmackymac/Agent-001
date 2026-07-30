@@ -650,6 +650,7 @@ with st.sidebar:
         if flow:
             auth_url, state = flow.authorization_url(prompt="consent")
             st.link_button("Connect Gmail & Drive", auth_url)
+            st.code(auth_url[:100])
         else:
             st.error("Google OAuth not configured.")
     
