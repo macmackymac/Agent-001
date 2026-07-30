@@ -653,16 +653,9 @@ with st.sidebar:
             st.session_state.google_credentials = None
             st.rerun()
     else:
-        flow = get_google_auth_flow()
+        from auth.google_auth import get_authorization_url
 
-        if flow:
-            auth_url, state = flow.authorization_url(
-                access_type="offline",
-                include_granted_scopes="true",
-                prompt="consent"
-            )
-        
-            st.session_state.oauth_state = state
+        auth_url = get_authorization_url()
         
             st.write("DEBUG AUTH URL")
 
