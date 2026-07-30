@@ -19,6 +19,8 @@ from openai import OpenAI
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+import os
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 st.set_page_config(page_title="My First Agent", page_icon="🤖", layout="wide")
 
