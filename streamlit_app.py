@@ -650,19 +650,19 @@ with st.sidebar:
             flow = get_google_auth_flow()
             if flow:
                 auth_url, state = flow.authorization_url(prompt="consent")
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    st.info("Click the button on the right to authenticate with Google")
-                with col2:
-                    st.markdown(f"""
-                    <a href="{auth_url}" target="_blank">
-                        <button style="width: 100%; padding: 10px; background-color: #1f77b4; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                            Open Google
-                        </button>
-                    </a>
-                    """, unsafe_allow_html=True)
+                st.session_state.auth_url = auth_url
+                st.rerun()
             else:
                 st.error("Google OAuth not configured. Check your Secrets.")
+        
+        if "auth_url" in st.session_state:
+            auth_url = st.session_state.auth_url
+            del st.session_state.auth_url
+            st.components.v1.html(f"""
+                <script>
+                window.top.location.href = "{auth_url}";
+                </script>
+            """, height=0)
     
     st.divider()
     
