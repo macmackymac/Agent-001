@@ -653,8 +653,18 @@ with st.sidebar:
         flow = get_google_auth_flow()
         if flow:
             auth_url, state = flow.authorization_url(prompt="consent")
-            st.link_button("Connect Gmail & Drive", auth_url)
-            st.code(auth_url[:100])
+            st.components.v1.html(f'''
+                <a href="{auth_url}" target="_self" style="
+                    display: inline-block;
+                    padding: 8px 16px;
+                    background-color: #FF4B4B;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    font-size: 14px;
+                ">Connect Gmail & Drive</a>
+            ''', height=50)
         else:
             st.error("Google OAuth not configured.")
     
