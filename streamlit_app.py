@@ -593,7 +593,7 @@ with st.sidebar:
     # Google authentication
 st.subheader("Google Services")
 
-init_google_session()
+initialize_session()
 
 if st.session_state.google_authenticated:
     st.caption("✅ Gmail & Drive connected")
