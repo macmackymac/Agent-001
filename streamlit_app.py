@@ -653,18 +653,8 @@ with st.sidebar:
         flow = get_google_auth_flow()
         if flow:
             auth_url, state = flow.authorization_url(prompt="consent")
-            st.components.v1.html(f'''
-                <button onclick="window.top.location.href='{auth_url}'" style="
-                    padding: 8px 16px;
-                    background-color: #FF4B4B;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    font-weight: bold;
-                    font-size: 14px;
-                    cursor: pointer;
-                ">Connect Gmail & Drive</button>
-            ''', height=50)
+            st.caption("Copy this link and paste it in your browser:")
+            st.code(auth_url, language=None)
         else:
             st.error("Google OAuth not configured.")
     
