@@ -653,16 +653,17 @@ with st.sidebar:
             st.session_state.google_credentials = None
             st.rerun()
     else:
-        from auth.google_auth import get_authorization_url
+    from auth.google_auth import get_authorization_url
 
+    try:
         auth_url = get_authorization_url()
-            
-            st.markdown(
-                f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
-            )
-        
-        else:
-            st.error("Google OAuth not configured.")
+
+        st.markdown(
+            f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
+        )
+
+    except Exception as e:
+        st.error(f"Google OAuth not configured: {e}")
     
     st.divider()
     
