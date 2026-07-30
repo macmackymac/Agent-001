@@ -16,6 +16,9 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 from openai import OpenAI
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
 
 st.set_page_config(page_title="My First Agent", page_icon="🤖", layout="wide")
 
@@ -39,6 +42,34 @@ DEFAULT_SYSTEM_PROMPT = (
     "rather than guessing an answer."
 )
 
+# ---------------------------------------------------------------------------
+# Google authentication
+# ---------------------------------------------------------------------------
+
+def get_google_auth_flow():
+    """Create OAuth flow for Google."""
+    secrets_dict = st.secrets.to_dict()
+    creds_info = secrets_dict.get("GOOGLE_OAUTH_CREDENTIALS", {})
+    
+    if not creds_info:
+        return None
+    
+    flow = Flow.from_client_config(
+        creds_info,
+        scopes=[
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/drive.file"
+        ],
+        redirect_uri="http://localhost:8501/"
+    )
+    return flow
+
+def init_google_session():
+    """Initialize Google auth state."""
+    if "google_authenticated" not in st.session_state:
+        st.session_state.google_authenticated = False
+    if "google_credentials" not in st.session_state:
+        st.session_state.google_credentials = None
 
 # ---------------------------------------------------------------------------
 # Persona management
@@ -203,6 +234,62 @@ def search_web(query: str, max_results: int = 5) -> str:
 
     return "\n".join(lines)
 
+def read_recent_emails(max_results: int = 5) -> str:
+    """Read recent emails from Gmail."""
+    if not st.session_state.google_authenticated or not st.session_state.google_credentials:
+        return f"{TOOL_ERROR} Gmail not authenticated. Connect in the sidebar first."
+    
+    try:
+        creds = st.session_state.google_credentials
+        service = build("gmail", "v1", credentials=creds)
+        
+        results = service.users().messages().list(
+            userId="me",
+            maxResults=max_results,
+            q="is:unread"
+        ).execute()
+        
+        messages = results.get("messages", [])
+        if not messages:
+            return "No unread emails found."
+        
+        email_summaries = []
+        for msg in messages:
+            msg_data = service.users().messages().get(userId="me", id=msg["id"]).execute()
+            headers = msg_data["payload"].get("headers", [])
+            subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No subject")
+            sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown")
+            
+            email_summaries.append(f"From: {sender}\nSubject: {subject}")
+        
+        return "\n\n".join(email_summaries)
+    except Exception as exc:
+        return f"{TOOL_ERROR} could not read emails: {exc}"
+
+
+def save_to_google_drive(filename: str, content: str) -> str:
+    """Save a file to Google Drive."""
+    if not st.session_state.google_authenticated or not st.session_state.google_credentials:
+        return f"{TOOL_ERROR} Google Drive not authenticated. Connect in the sidebar first."
+    
+    try:
+        creds = st.session_state.google_credentials
+        service = build("drive", "v3", credentials=creds)
+        
+        file_metadata = {"name": filename}
+        from io import BytesIO
+        media = None
+        
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id"
+        ).execute()
+        
+        return f"File '{filename}' saved to Google Drive (ID: {file.get('id')})"
+    except Exception as exc:
+        return f"{TOOL_ERROR} could not save to Drive: {exc}"
+
 
 TOOLS = [
     {
@@ -265,12 +352,53 @@ TOOLS = [
             },
         },
     },
+,
+    {
+        "type": "function",
+        "function": {
+            "name": "read_recent_emails",
+            "description": "Read unread emails from Gmail inbox.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Number of emails to fetch, 1-10. Defaults to 5.",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_to_google_drive",
+            "description": "Save a file or content to Google Drive.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "Name of the file to save, e.g. 'notes.txt'.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The file content to save.",
+                    },
+                },
+                "required": ["filename", "content"],
+            },
+        },
+    }
 ]
 
 TOOL_IMPLS = {
     "calculate": calculate,
     "get_current_time": get_current_time,
     "search_web": search_web,
+    "read_recent_emails": read_recent_emails,
+    "save_to_google_drive": save_to_google_drive,
 }
 
 
@@ -480,6 +608,28 @@ with st.sidebar:
         selected_persona = "default"
         system_prompt = DEFAULT_SYSTEM_PROMPT
         st.caption("*No personas found. Using default.*")
+    
+    st.divider()
+    
+    # Google authentication
+    st.subheader("Google Services")
+    init_google_session()
+    
+    if st.session_state.google_authenticated:
+        st.caption("✓ Gmail & Drive connected")
+        if st.button("Disconnect Google"):
+            st.session_state.google_authenticated = False
+            st.session_state.google_credentials = None
+            st.rerun()
+    else:
+        if st.button("Connect Gmail & Drive"):
+            flow = get_google_auth_flow()
+            if flow:
+                auth_url, state = flow.authorization_url(prompt="consent")
+                st.markdown(f"[Click here to authenticate with Google]({auth_url})")
+                st.info("After authenticating, come back here and you'll be connected.")
+            else:
+                st.error("Google OAuth not configured. Check your Secrets.")
     
     st.divider()
     
