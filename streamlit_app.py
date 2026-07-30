@@ -664,6 +664,10 @@ with st.sidebar:
         
             st.session_state.oauth_state = state
         
+            st.write("DEBUG AUTH URL")
+
+            st.code(auth_url)
+            
             st.link_button(
                 "📧 Connect Gmail & Google Drive",
                 auth_url,
