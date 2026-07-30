@@ -83,18 +83,22 @@ def init_google_session():
     # Check if we're returning from Google OAuth
     query_params = st.query_params
     if "code" in query_params:
+        st.sidebar.success("Got authorization code from Google!")
         try:
             flow = get_google_auth_flow()
             if flow:
-                # Exchange the authorization code for tokens
                 flow.fetch_token(code=query_params["code"])
                 creds = flow.credentials
                 st.session_state.google_credentials = creds
                 st.session_state.google_authenticated = True
-                st.success("✓ Successfully connected to Gmail & Drive!")
+                st.query_params.clear()
                 st.rerun()
+            else:
+                st.sidebar.error("Flow is None")
         except Exception as e:
-            st.error(f"Authentication failed: {e}")
+            st.sidebar.error(f"Auth failed: {e}")
+    elif "error" in query_params:
+        st.sidebar.error(f"Google returned error: {query_params['error']}")
 
 # ---------------------------------------------------------------------------
 # Persona management
