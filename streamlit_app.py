@@ -16,13 +16,20 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 from openai import OpenAI
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
+from auth.session import (
+    initialize_session,
+    reset_google_session,
+    is_google_authenticated,
+)
+
+from auth.google_auth import GoogleAuth
+from auth.google_services import GoogleServices
 from googleapiclient.discovery import build
 import os
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 st.set_page_config(page_title="My First Agent", page_icon="🤖", layout="wide")
+initialize_session()
 
 MAX_STEPS = 8
 MAX_TOOL_FAILURES = 2
@@ -43,65 +50,6 @@ DEFAULT_SYSTEM_PROMPT = (
     "Never invent a tool result. If a tool returns an error, say so plainly "
     "rather than guessing an answer."
 )
-
-# ---------------------------------------------------------------------------
-# Google authentication
-# ---------------------------------------------------------------------------
-
-def get_google_auth_flow():
-    """Create OAuth flow for Google."""
-    secrets_dict = st.secrets.to_dict()
-    creds_info = secrets_dict.get("GOOGLE_OAUTH_CREDENTIALS", {})
-    
-    if not creds_info:
-        return None
-    
-    # If creds_info is a string, parse it as JSON
-    if isinstance(creds_info, str):
-        try:
-            creds_info = json.loads(creds_info)
-        except json.JSONDecodeError:
-            return None
-    
-    flow = Flow.from_client_config(
-        creds_info,
-        scopes=[
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/drive.file"
-        ],
-        redirect_uri="https://agent-001-vwevvxgwtg4js5nc4c9acy.streamlit.app"
-    )
-    return flow
-
-def init_google_session():
-    """Initialize Google auth state and handle OAuth callback."""
-    if "google_authenticated" not in st.session_state:
-        st.session_state.google_authenticated = False
-    if "google_credentials" not in st.session_state:
-        st.session_state.google_credentials = None
-    
-    # Check if we're returning from Google OAuth
-    query_params = st.query_params
-    if "code" in query_params:
-        st.sidebar.success("Got authorization code from Google!")
-        try:
-            flow = get_google_auth_flow()
-            if flow:
-                if "oauth_state" not in st.session_state:
-                    st.error("OAuth state missing.")
-                    st.stop()
-                flow.fetch_token(code=query_params["code"])
-                creds = flow.credentials
-                st.session_state.google_credentials = creds
-                st.session_state.google_authenticated = True
-                st.query_params.clear()
-                st.rerun()
-            else:
-                st.sidebar.error("Flow is None")
-        except Exception as e:
-            st.sidebar.error(f"Auth failed: {e}")
-    elif "error" in query_params:
-        st.sidebar.error(f"Google returned error: {query_params['error']}")
 
 # ---------------------------------------------------------------------------
 # Persona management
