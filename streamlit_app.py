@@ -69,7 +69,7 @@ def get_google_auth_flow():
             "https://www.googleapis.com/auth/gmail.readonly",
             "https://www.googleapis.com/auth/drive.file"
         ],
-        redirect_uri="https://agent-001-vwevvxgwtg4js5nc4c9acy.streamlit.app/"
+        redirect_uri="https://agent-001-vwevvxgwtg4js5nc4c9acy.streamlit.app"
     )
     return flow
 
@@ -87,6 +87,9 @@ def init_google_session():
         try:
             flow = get_google_auth_flow()
             if flow:
+                if "oauth_state" not in st.session_state:
+                    st.error("OAuth state missing.")
+                    st.stop()
                 flow.fetch_token(code=query_params["code"])
                 creds = flow.credentials
                 st.session_state.google_credentials = creds
@@ -651,10 +654,20 @@ with st.sidebar:
             st.rerun()
     else:
         flow = get_google_auth_flow()
+
         if flow:
-            auth_url, state = flow.authorization_url(prompt="consent")
-            st.caption("Copy this link and paste it in your browser:")
-            st.code(auth_url, language=None)
+            auth_url, state = flow.authorization_url(
+                access_type="offline",
+                include_granted_scopes="true",
+                prompt="consent"
+            )
+            st.session_state.oauth_state = state
+            
+            st.link_button(
+                "📧 Connect Gmail & Google Drive",
+                auth_url,
+                use_container_width=True,
+            )
         else:
             st.error("Google OAuth not configured.")
     
