@@ -646,14 +646,14 @@ with st.sidebar:
             st.session_state.google_credentials = None
             st.rerun()
     else:
-        if st.button("Connect Gmail & Drive"):
-            flow = get_google_auth_flow()
-            if flow:
-                auth_url, state = flow.authorization_url(prompt="consent")
-                st.session_state.auth_url = auth_url
-                st.rerun()
-            else:
-                st.error("Google OAuth not configured. Check your Secrets.")
+        flow = get_google_auth_flow()
+        if flow:
+            auth_url, state = flow.authorization_url(prompt="consent")
+            st.link_button("Connect Gmail & Drive", auth_url)
+        else:
+            st.error("Google OAuth not configured.")
+    
+    st.divider()
         
         if "auth_url" in st.session_state:
             auth_url = st.session_state.auth_url
