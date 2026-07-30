@@ -664,7 +664,7 @@ with st.sidebar:
                     font-weight: bold;
                     font-size: 14px;
                 ">Connect Gmail & Drive</a>
-            ''', height=50)
+            ''', height=150)
         else:
             st.error("Google OAuth not configured.")
     
