@@ -427,27 +427,15 @@ else:
             result = str(result)
 
 if result.startswith(TOOL_ERROR):
-    failures[name] = failures.get(name, 0) + 1
-    if failures[name] == 1:
-        # First failure: retry once before disabling
-        trace.append({
-            "tool": f"{name} (retry)",
-            "args": raw_args,
-            "result": "Retrying after first failure..."
-        })
-        try:
-            result = impl(**json.loads(raw_args))
-        except Exception as exc:
-            result = f"{TOOL_ERROR} retry also failed: {exc}"
-    
-    if result.startswith(TOOL_ERROR):
-        failures[name] = failures.get(name, 0) + 1
-        if failures[name] >= MAX_TOOL_FAILURES:
-            disabled.add(name)
-            result += (
-                " This tool is now unavailable for the rest of this "
-                "question. Answer using what you already have."
-            )
+                failures[name] = failures.get(name, 0) + 1
+                if failures[name] >= MAX_TOOL_FAILURES:
+                    disabled.add(name)
+                    result += (
+                        " This tool is now unavailable for the rest of this "
+                        "question. Answer using what you already have."
+                    )
+            else:
+                failures[name] = 0
                     result += (
                         " This tool is now unavailable for the rest of this "
                         "question. Answer using what you already have."
