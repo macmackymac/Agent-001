@@ -654,7 +654,7 @@ with st.sidebar:
         if flow:
             auth_url, state = flow.authorization_url(prompt="consent")
             st.components.v1.html(f'''
-                <a href="{auth_url}" target="_self" style="
+                <a href="{auth_url}" target="_top" style="
                     display: inline-block;
                     padding: 8px 16px;
                     background-color: #FF4B4B;
