@@ -666,7 +666,8 @@ with st.sidebar:
         
             st.write("DEBUG AUTH URL")
 
-            st.code(auth_url)
+            print(auth_url)
+            st.write(auth_url)
             
             st.link_button(
                 "📧 Connect Gmail & Google Drive",
