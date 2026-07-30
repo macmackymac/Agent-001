@@ -670,22 +670,7 @@ with st.sidebar:
             st.write(auth_url)
             
             st.markdown(
-                f"""
-            <a href="{auth_url}" target="_self">
-                <button style="
-                    width:100%;
-                    padding:12px;
-                    border-radius:8px;
-                    border:none;
-                    background:#4285F4;
-                    color:white;
-                    font-size:16px;
-                    cursor:pointer;">
-                    📧 Connect Gmail & Google Drive
-                </button>
-            </a>
-            """,
-                unsafe_allow_html=True,
+                f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
             )
         
         else:
