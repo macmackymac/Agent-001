@@ -67,7 +67,7 @@ def get_google_auth_flow():
             "https://www.googleapis.com/auth/gmail.readonly",
             "https://www.googleapis.com/auth/drive.file"
         ],
-        redirect_uri="http://localhost:8501/"
+        redirect_uri="https://agent-001-vwevvxgwtg4js5nc4c9acy.streamlit.app/"
     )
     return flow
 
