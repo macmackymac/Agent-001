@@ -654,15 +654,6 @@ with st.sidebar:
             st.error("Google OAuth not configured.")
     
     st.divider()
-        
-        if "auth_url" in st.session_state:
-            auth_url = st.session_state.auth_url
-            del st.session_state.auth_url
-            st.components.v1.html(f"""
-                <script>
-                window.top.location.href = "{auth_url}";
-                </script>
-            """, height=0)
     
     st.divider()
     
