@@ -595,12 +595,23 @@ st.subheader("Google Services")
 
 initialize_session()
 
-if st.session_state.google_authenticated:
+query_params = st.query_params
+
+if "code" in query_params:
+    try:
+        GoogleAuth.exchange_code(query_params["code"])
+
+        st.query_params.clear()
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"Google Login Failed: {e}")
+        
+if is_google_authenticated():
     st.caption("✅ Gmail & Drive connected")
 
     if st.button("Disconnect Google"):
-        st.session_state.google_authenticated = False
-        st.session_state.google_credentials = None
+        reset_google_session()
         st.rerun()
 
 else:
