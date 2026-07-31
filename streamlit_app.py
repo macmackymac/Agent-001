@@ -39,6 +39,10 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 st.set_page_config(page_title="My First Agent", page_icon="🤖", layout="wide")
 initialize_session()
 
+from memory.memory_manager import MemoryManager
+
+MemoryManager.set("last_app_start", datetime.datetime.now().isoformat())
+
 MAX_STEPS = 8
 MAX_TOOL_FAILURES = 2
 
