@@ -25,8 +25,6 @@ from services.gmail_service import GmailService
 from services.drive_service import DriveService
 from services.calendar_service import CalendarService
 
-from memory.memory_manager import MemoryManager
-
 from core.tools import (
     calculate,
     get_current_time,
