@@ -669,12 +669,12 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
 # Chat Bubble UI with Persona Selection
 # ---------------------------------------------------------------------------
 
-st.title("🤖 Agent Chat")
+st.title("🤖 APPA (Autonomous Personal Productivity Assistant)")
 
 # Sidebar
 with st.sidebar:
     st.subheader("About")
-    st.caption("This is APPA (Autonomous Personal Productivity Assistant) Powered by: OniCore")
+    st.caption("AI-powered productivity platform designed to help individuals. Powered by: OniCore")
     st.divider()
     
     # Persona selection
