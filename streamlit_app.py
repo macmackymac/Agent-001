@@ -248,25 +248,45 @@ def read_recent_emails(max_results: int = 5) -> str:
 
 
 def save_to_google_drive(filename: str, content: str) -> str:
-    """Save a file to Google Drive."""
-    if not st.session_state.google_authenticated or not st.session_state.google_credentials:
+    """Save a text file to Google Drive."""
+
+    if (
+        not st.session_state.google_authenticated
+        or not st.session_state.google_credentials
+    ):
         return f"{TOOL_ERROR} Google Drive not authenticated. Connect in the sidebar first."
-    
+
     try:
+        from googleapiclient.http import MediaIoBaseUpload
+        from io import BytesIO
+
         creds = st.session_state.google_credentials
         service = build("drive", "v3", credentials=creds)
-        
-        file_metadata = {"name": filename}
-        from io import BytesIO
-        media = None
-        
+
+        file_metadata = {
+            "name": filename
+        }
+
+        file_stream = BytesIO(content.encode("utf-8"))
+
+        media = MediaIoBaseUpload(
+            file_stream,
+            mimetype="text/plain",
+            resumable=False,
+        )
+
         file = service.files().create(
             body=file_metadata,
             media_body=media,
-            fields="id"
+            fields="id,name,webViewLink",
         ).execute()
-        
-        return f"File '{filename}' saved to Google Drive (ID: {file.get('id')})"
+
+        return (
+            f"✅ File '{file['name']}' uploaded successfully.\n\n"
+            f"Drive File ID: {file['id']}\n"
+            f"Link: {file['webViewLink']}"
+        )
+
     except Exception as exc:
         return f"{TOOL_ERROR} could not save to Drive: {exc}"
 
