@@ -18,3 +18,6 @@ class AppContext:
     @google_credentials.setter
     def google_credentials(self, credentials):
         self._google_credentials = credentials
+    
+    # Shared application context
+    app_context = AppContext()
