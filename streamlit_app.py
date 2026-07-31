@@ -692,7 +692,7 @@ with st.sidebar:
         selected_persona = "default"
         system_prompt = DEFAULT_SYSTEM_PROMPT
         st.caption("*No personas found. Using default.*")
-    
+
     st.divider()
     
     # Google authentication
