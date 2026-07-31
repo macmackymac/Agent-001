@@ -615,10 +615,10 @@ if is_google_authenticated():
         st.rerun()
 
 else:
-    from auth.google_auth import get_authorization_url
+    from auth.google_auth import GoogleAuth
 
     try:
-        auth_url = get_authorization_url()
+        auth_url = GoogleAuth.authorization_url()
 
         st.markdown(
             f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
