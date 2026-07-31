@@ -7,6 +7,7 @@ from google_auth_oauthlib.flow import Flow
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/calendar",
 ]
 
 REDIRECT_URI = "https://appa-agent.streamlit.app"
