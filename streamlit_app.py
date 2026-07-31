@@ -23,6 +23,7 @@ from auth.session import (
 )
 from services.gmail_service import GmailService
 from services.drive_service import DriveService
+from services.calendar_service import CalendarService
 from auth.google_auth import GoogleAuth
 from auth.google_services import GoogleServices
 from googleapiclient.discovery import build
@@ -282,6 +283,50 @@ def save_to_google_drive(filename: str, content: str) -> str:
     except Exception as exc:
         return f"{TOOL_ERROR} could not save to Drive: {exc}"
 
+def get_calendar_events(max_results: int = 10) -> str:
+    """Read upcoming calendar events."""
+
+    if (
+        not st.session_state.google_authenticated
+        or not st.session_state.google_credentials
+    ):
+        return (
+            f"{TOOL_ERROR} Google Calendar not authenticated. "
+            "Connect in the sidebar first."
+        )
+
+    try:
+        calendar = CalendarService(
+            st.session_state.google_credentials
+        )
+
+        events = calendar.get_upcoming_events(max_results)
+
+        if not events:
+            return "No upcoming events."
+
+        output = []
+
+        for event in events:
+
+            start = event["start"].get(
+                "dateTime",
+                event["start"].get("date")
+            )
+
+            title = event.get(
+                "summary",
+                "(No Title)"
+            )
+
+            output.append(
+                f"{start}\n{title}"
+            )
+
+        return "\n\n".join(output)
+
+    except Exception as exc:
+        return f"{TOOL_ERROR} {exc}"
 
 TOOLS = [
     {
@@ -381,7 +426,22 @@ TOOLS = [
                 "required": ["filename", "content"],
             },
         },
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_calendar_events",
+            "description": "Read upcoming Google Calendar events.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_results": {
+                        "type": "integer"
+                    }
+                }
+            }
+        }
+    },
 ]
 
 TOOL_IMPLS = {
@@ -390,6 +450,7 @@ TOOL_IMPLS = {
     "search_web": search_web,
     "read_recent_emails": read_recent_emails,
     "save_to_google_drive": save_to_google_drive,
+    "get_calendar_events": get_calendar_events,
 }
 
 
