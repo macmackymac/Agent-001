@@ -42,7 +42,7 @@ class MemoryManager:
     def save_profile(cls, profile: dict):
         cls.save_json("user/profile.json", profile)
 
-        @classmethod
+    @classmethod
     def get(cls, key: str, default=None):
         """Get a value from the user profile."""
         profile = cls.load_profile()
@@ -54,3 +54,17 @@ class MemoryManager:
         profile = cls.load_profile()
         profile[key] = value
         cls.save_profile(profile)
+
+    @classmethod
+    def remember(cls, key: str, value):
+        """
+        Store a long-term memory.
+        """
+        cls.set(key, value)
+
+    @classmethod
+    def recall(cls, key: str, default=None):
+        """
+        Retrieve a long-term memory.
+        """
+        return cls.get(key, default)
