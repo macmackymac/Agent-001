@@ -9,7 +9,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
 ]
 
-REDIRECT_URI = "https://agent-001-vwevvxgwtg4js5nc4c9acy.streamlit.app"
+REDIRECT_URI = "https://appaagent.streamlit.app"
 
 
 class GoogleAuth:
