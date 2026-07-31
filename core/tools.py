@@ -76,3 +76,18 @@ def get_current_time(timezone: str = "UTC") -> str:
             f"could not read the time for "
             f"{timezone!r}: {exc}"
         )
+
+from memory.memory_manager import MemoryManager
+
+
+def remember_information(key: str, value: str) -> str:
+    """
+    Store user information in long-term memory.
+    """
+
+    try:
+        MemoryManager.remember(key, value)
+        return f"I'll remember that your '{key}' is '{value}'."
+
+    except Exception as exc:
+        return f"{TOOL_ERROR} {exc}"
