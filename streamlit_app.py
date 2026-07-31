@@ -695,42 +695,42 @@ with st.sidebar:
 
     st.divider()
     
-            # Google authentication
-        st.subheader("Google Services")
-        
-        initialize_session()
-        
-        query_params = st.query_params
-        
-        if "code" in query_params:
-            try:
-                GoogleAuth.exchange_code(query_params["code"])
-        
-                st.query_params.clear()
-                st.rerun()
-        
-            except Exception as e:
-                st.error(f"Google Login Failed: {e}")
-                
-        if is_google_authenticated():
-            st.caption("✅ Gmail & Drive connected")
-        
-            if st.button("Disconnect Google"):
-                reset_google_session()
-                st.rerun()
-        
-        else:
-            from auth.google_auth import GoogleAuth
-        
-            try:
-                auth_url = GoogleAuth.authorization_url()
-        
-                st.markdown(
-                    f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
-                )
-        
-            except Exception as e:
-                st.error(f"Google OAuth Error: {e}")
+        # Google authentication
+    st.subheader("Google Services")
+    
+    initialize_session()
+    
+    query_params = st.query_params
+    
+    if "code" in query_params:
+        try:
+            GoogleAuth.exchange_code(query_params["code"])
+    
+            st.query_params.clear()
+            st.rerun()
+    
+        except Exception as e:
+            st.error(f"Google Login Failed: {e}")
+            
+    if is_google_authenticated():
+        st.caption("✅ Gmail & Drive connected")
+    
+        if st.button("Disconnect Google"):
+            reset_google_session()
+            st.rerun()
+    
+    else:
+        from auth.google_auth import GoogleAuth
+    
+        try:
+            auth_url = GoogleAuth.authorization_url()
+    
+            st.markdown(
+                f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
+            )
+    
+        except Exception as e:
+            st.error(f"Google OAuth Error: {e}")
             
             st.divider()
             
