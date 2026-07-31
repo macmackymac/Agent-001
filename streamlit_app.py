@@ -139,14 +139,13 @@ def get_active_client_and_model():
 
 
 # Validate that we have at least one key
+
 gemini_available = bool(os.environ.get("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", ""))
 groq_available = bool(os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", ""))
 
+
 if not gemini_available and not groq_available:
-    st.error(
-        "No API keys found. Add GEMINI_API_KEY and/or GROQ_API_KEY in "
-        "Manage app → Settings → Secrets, then reboot the app."
-    )
+    st.error("THIS IS A TEST MESSAGE")
     st.stop()
 
 init_provider_state()

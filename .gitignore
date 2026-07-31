@@ -1,0 +1,27 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+
+# Streamlit Secrets
+.streamlit/
+!.streamlit/config.toml
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Claude / Local AI Skills
+.agents/
+.claude/
+
+# Environment Variables
+.env
+.env.*
