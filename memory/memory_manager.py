@@ -41,3 +41,16 @@ class MemoryManager:
     @classmethod
     def save_profile(cls, profile: dict):
         cls.save_json("user/profile.json", profile)
+
+        @classmethod
+    def get(cls, key: str, default=None):
+        """Get a value from the user profile."""
+        profile = cls.load_profile()
+        return profile.get(key, default)
+
+    @classmethod
+    def set(cls, key: str, value):
+        """Set a value in the user profile."""
+        profile = cls.load_profile()
+        profile[key] = value
+        cls.save_profile(profile)
