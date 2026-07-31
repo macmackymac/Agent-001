@@ -22,6 +22,7 @@ from auth.session import (
     is_google_authenticated,
 )
 from services.gmail_service import GmailService
+from services.drive_service import DriveService
 from auth.google_auth import GoogleAuth
 from auth.google_services import GoogleServices
 from googleapiclient.discovery import build
@@ -257,32 +258,20 @@ def save_to_google_drive(filename: str, content: str) -> str:
         not st.session_state.google_authenticated
         or not st.session_state.google_credentials
     ):
-        return f"{TOOL_ERROR} Google Drive not authenticated. Connect in the sidebar first."
-
-    try:
-        from googleapiclient.http import MediaIoBaseUpload
-        from io import BytesIO
-
-        creds = st.session_state.google_credentials
-        service = build("drive", "v3", credentials=creds)
-
-        file_metadata = {
-            "name": filename
-        }
-
-        file_stream = BytesIO(content.encode("utf-8"))
-
-        media = MediaIoBaseUpload(
-            file_stream,
-            mimetype="text/plain",
-            resumable=False,
+        return (
+            f"{TOOL_ERROR} Google Drive not authenticated. "
+            "Connect in the sidebar first."
         )
 
-        file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id,name,webViewLink",
-        ).execute()
+    try:
+        drive = DriveService(
+            st.session_state.google_credentials
+        )
+
+        file = drive.upload_text_file(
+            filename,
+            content,
+        )
 
         return (
             f"✅ File '{file['name']}' uploaded successfully.\n\n"
