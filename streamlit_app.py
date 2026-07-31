@@ -21,7 +21,7 @@ from auth.session import (
     reset_google_session,
     is_google_authenticated,
 )
-
+from services.gmail_service import GmailService
 from auth.google_auth import GoogleAuth
 from auth.google_services import GoogleServices
 from googleapiclient.discovery import build
@@ -215,34 +215,37 @@ def search_web(query: str, max_results: int = 5) -> str:
     return "\n".join(lines)
 
 def read_recent_emails(max_results: int = 5) -> str:
-    """Read recent emails from Gmail."""
-    if not st.session_state.google_authenticated or not st.session_state.google_credentials:
-        return f"{TOOL_ERROR} Gmail not authenticated. Connect in the sidebar first."
-    
+    """Read recent unread emails from Gmail."""
+
+    if (
+        not st.session_state.google_authenticated
+        or not st.session_state.google_credentials
+    ):
+        return (
+            f"{TOOL_ERROR} Gmail not authenticated. "
+            "Connect in the sidebar first."
+        )
+
     try:
-        creds = st.session_state.google_credentials
-        service = build("gmail", "v1", credentials=creds)
-        
-        results = service.users().messages().list(
-            userId="me",
-            maxResults=max_results,
-            q="is:unread"
-        ).execute()
-        
-        messages = results.get("messages", [])
-        if not messages:
+        gmail = GmailService(
+            st.session_state.google_credentials
+        )
+
+        emails = gmail.get_unread_messages(max_results)
+
+        if not emails:
             return "No unread emails found."
-        
-        email_summaries = []
-        for msg in messages:
-            msg_data = service.users().messages().get(userId="me", id=msg["id"]).execute()
-            headers = msg_data["payload"].get("headers", [])
-            subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No subject")
-            sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown")
-            
-            email_summaries.append(f"From: {sender}\nSubject: {subject}")
-        
-        return "\n\n".join(email_summaries)
+
+        output = []
+
+        for email in emails:
+            output.append(
+                f"From: {email['sender']}\n"
+                f"Subject: {email['subject']}"
+            )
+
+        return "\n\n".join(output)
+
     except Exception as exc:
         return f"{TOOL_ERROR} could not read emails: {exc}"
 
