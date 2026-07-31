@@ -5,7 +5,7 @@ Coordinates the conversation loop between the LLM and registered tools.
 
 from core.provider import ProviderManager
 from core.tool_registry import registry
-
+from core.agent_runtime import AgentRuntime
 
 class Agent:
 
