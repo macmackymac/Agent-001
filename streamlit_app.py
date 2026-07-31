@@ -28,6 +28,7 @@ from services.calendar_service import CalendarService
 from core.tools import (
     calculate,
     get_current_time,
+    remember_information,
 )
 
 from auth.google_auth import GoogleAuth
@@ -448,6 +449,30 @@ TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "remember_information",
+            "description": "Remember important long-term information about the user.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "Memory key"
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Memory value"
+                    }
+                },
+                "required": [
+                    "key",
+                    "value"
+                ]
+            }
+        }
+    },
 ]
 
 TOOL_IMPLS = {
@@ -457,6 +482,7 @@ TOOL_IMPLS = {
     "read_recent_emails": read_recent_emails,
     "save_to_google_drive": save_to_google_drive,
     "get_calendar_events": get_calendar_events,
+    "remember_information": remember_information,
 }
 
 
