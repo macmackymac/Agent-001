@@ -24,6 +24,12 @@ from auth.session import (
 from services.gmail_service import GmailService
 from services.drive_service import DriveService
 from services.calendar_service import CalendarService
+
+from core.tools import (
+    calculate,
+    get_current_time,
+)
+
 from auth.google_auth import GoogleAuth
 from auth.google_services import GoogleServices
 from googleapiclient.discovery import build
