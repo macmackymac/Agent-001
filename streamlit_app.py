@@ -674,8 +674,7 @@ st.title("🤖 Agent Chat")
 # Sidebar
 with st.sidebar:
     st.subheader("About")
-    st.caption("This is APPA (Autonomous Personal Productivity Assistant)
-    Powered by: OniCore")
+    st.caption("This is APPA (Autonomous Personal Productivity Assistant) Powered by: OniCore")
     st.divider()
     
     # Persona selection
