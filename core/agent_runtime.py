@@ -8,6 +8,34 @@ tool registry and providers.
 
 class AgentRuntime:
 
+    def prepare_messages(
+        self,
+        user_message: str,
+        history: list,
+        system_prompt: str,
+    ) -> list:
+        """
+        Build the list of messages that will be sent to the LLM.
+        """
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_prompt,
+            }
+        ]
+
+        messages.extend(history)
+
+        messages.append(
+            {
+                "role": "user",
+                "content": user_message,
+            }
+        )
+
+        return messages
+    
     def run(
         self,
         user_message: str,
