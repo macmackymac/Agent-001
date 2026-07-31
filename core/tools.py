@@ -1,22 +1,19 @@
 """
-All APPA tool implementations.
+APPA Core Tool Implementations
 """
 
 import ast
 import datetime
-import json
 import operator
+from zoneinfo import ZoneInfo
 
 import streamlit as st
-from zoneinfo import ZoneInfo
 
 from services.gmail_service import GmailService
 from services.drive_service import DriveService
 from services.calendar_service import CalendarService
 
-
 TOOL_ERROR = "TOOL_ERROR:"
-
 
 _OPS = {
     ast.Add: operator.add,
@@ -49,3 +46,33 @@ def _eval_node(node):
     raise ValueError(
         "Only numbers and + - * / // % ** are supported."
     )
+
+
+def calculate(expression: str) -> str:
+    try:
+        return str(
+            _eval_node(
+                ast.parse(
+                    expression,
+                    mode="eval",
+                ).body
+            )
+        )
+    except Exception as exc:
+        return f"{TOOL_ERROR} calculation failed: {exc}"
+
+
+def get_current_time(timezone: str = "UTC") -> str:
+    try:
+        now = datetime.datetime.now(
+            ZoneInfo(timezone)
+        )
+        return now.strftime(
+            "%Y-%m-%d %H:%M:%S %Z (UTC%z)"
+        )
+    except Exception as exc:
+        return (
+            f"{TOOL_ERROR} "
+            f"could not read the time for "
+            f"{timezone!r}: {exc}"
+        )
