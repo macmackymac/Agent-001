@@ -669,18 +669,25 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
 # Chat Bubble UI with Persona Selection
 # ---------------------------------------------------------------------------
 from PIL import Image
+import base64
 
-icon = Image.open("assets/Appa.png")
+def get_base64(image_path):
+    with open(image_path, "rb") as img:
+        return base64.b64encode(img.read()).decode()
 
-col1, col2 = st.columns([1, 15])
+icon = get_base64("assets/Appa.png")
 
-with col1:
-    st.image(icon, width=48)
-
-with col2:
-    st.markdown(
-        "# APPA (Autonomous Personal Productivity Assistant)"
-    )
+st.markdown(
+    f"""
+    <div style="display:flex; align-items:center; gap:15px;">
+        <img src="data:image/png;base64,{icon}" width="55">
+        <h1 style="margin:0;">
+            APPA (Autonomous Personal Productivity Assistant)
+        </h1>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 st.title("🤖 APPA (Autonomous Personal Productivity Assistant)")
 
