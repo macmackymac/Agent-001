@@ -26,6 +26,7 @@ from services.drive_service import DriveService
 from services.calendar_service import CalendarService
 from tools.gmail_tools import read_recent_emails
 from tools.drive_tools import save_to_google_drive
+from tools.calendar_tools import get_calendar_events
 
 from core.agent_runtime import AgentRuntime
 from core.tools import (
@@ -225,51 +226,6 @@ def search_web(query: str, max_results: int = 5) -> str:
 
     return "\n".join(lines)
 
-def get_calendar_events(max_results: int = 10) -> str:
-    """Read upcoming calendar events."""
-
-    if (
-        not st.session_state.google_authenticated
-        or not st.session_state.google_credentials
-    ):
-        return (
-            f"{TOOL_ERROR} Google Calendar not authenticated. "
-            "Connect in the sidebar first."
-        )
-
-    try:
-        calendar = CalendarService(
-            st.session_state.google_credentials
-        )
-
-        events = calendar.get_upcoming_events(max_results)
-
-        if not events:
-            return "No upcoming events."
-
-        output = []
-
-        for event in events:
-
-            start = event["start"].get(
-                "dateTime",
-                event["start"].get("date")
-            )
-
-            title = event.get(
-                "summary",
-                "(No Title)"
-            )
-
-            output.append(
-                f"{start}\n{title}"
-            )
-
-        return "\n\n".join(output)
-
-    except Exception as exc:
-        return f"{TOOL_ERROR} {exc}"
-
 TOOLS = [
     {
         "type": "function",
@@ -425,13 +381,20 @@ def save_to_google_drive_tool(filename: str, content: str):
         content,
     )
 
+def get_calendar_events_tool(max_results=10):
+    return get_calendar_events(
+        st.session_state.google_authenticated,
+        st.session_state.google_credentials,
+        max_results,
+    )
+
 TOOL_IMPLS = {
     "calculate": calculate,
     "get_current_time": get_current_time,
     "search_web": search_web,
     "read_recent_emails": read_recent_emails_tool,
     "save_to_google_drive": save_to_google_drive_tool,
-    "get_calendar_events": get_calendar_events,
+    "get_calendar_events": get_calendar_events_tool,
     "remember_information": remember_information,
 }
 
