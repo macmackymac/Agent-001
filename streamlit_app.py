@@ -791,7 +791,10 @@ for message in st.session_state.messages:
 # Chat input
 if prompt := st.chat_input("Ask me anything…"):
     # Display user message
-    with st.chat_message("user"):
+    from PIL import Image
+    user_avatar = Image.open("assets/User.png")
+    
+    with st.chat_message("user",avatar=user_avatar):
         st.markdown(prompt)
     
     # Add to history
