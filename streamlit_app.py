@@ -668,6 +668,19 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
 # ---------------------------------------------------------------------------
 # Chat Bubble UI with Persona Selection
 # ---------------------------------------------------------------------------
+from PIL import Image
+
+icon = Image.open("assets/Appa.jpg")
+
+col1, col2 = st.columns([1, 15])
+
+with col1:
+    st.image(icon, width=48)
+
+with col2:
+    st.markdown(
+        "# APPA (Autonomous Personal Productivity Assistant)"
+    )
 
 st.title("🤖 APPA (Autonomous Personal Productivity Assistant)")
 
