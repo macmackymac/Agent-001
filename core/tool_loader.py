@@ -13,12 +13,9 @@ from core.tools import (
 )
 
 # Google Workspace tools
-from streamlit_app import (
-    read_recent_emails,
-    save_to_google_drive,
-    get_calendar_events,
-)
-
+from tools.gmail_tools import read_recent_emails
+from tools.drive_tools import save_to_google_drive
+from tools.calendar_tools import get_calendar_events
 
 def initialize_tools():
     """
