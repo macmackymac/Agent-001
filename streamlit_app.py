@@ -417,8 +417,13 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
                     })
                 else:
                     try:
-                        result = impl(**json.loads(raw_args))
-                        call_cache[cache_key] = result  # Store it for next time
+                        result = runtime.execute_tool(
+                            implementation=impl,
+                            raw_args=raw_args,
+                        )
+                    
+                        call_cache[cache_key] = result
+                    
                     except Exception as exc:
                         result = f"{TOOL_ERROR} {exc}"
 
