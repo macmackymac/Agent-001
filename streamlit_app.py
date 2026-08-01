@@ -327,9 +327,13 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
     # Cache tool results within this question to avoid repeat calls
     call_cache = {}
     
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": user_message})
+    runtime = AgentRuntime()
+
+    messages = runtime.prepare_messages(
+        user_message=user_message,
+        history=history,
+        system_prompt=system_prompt,
+    )
 
     trace = []
     failures = {}
