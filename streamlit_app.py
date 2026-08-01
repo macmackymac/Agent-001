@@ -796,7 +796,11 @@ if prompt := st.chat_input("Ask me anything…"):
         answer, trace = run_agent(prompt, history_for_agent, system_prompt)
     
     # Display agent response
-    with st.chat_message("assistant"):
+    from PIL import Image
+
+    assistant_avatar = Image.open("assets/Appa.jpg")
+    
+    with st.chat_message("assistant",avatar=assistant_avatar):
         st.markdown(answer)
         if trace:
             with st.expander("View reasoning process"):
