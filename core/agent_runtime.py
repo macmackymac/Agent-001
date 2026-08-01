@@ -55,6 +55,16 @@ class AgentRuntime:
             request["tools"] = available_tools
     
         return request
+    def execute_request(
+        self,
+        client,
+        request: dict,
+    ):
+        """
+        Execute a request against the active LLM provider.
+        """
+    
+        return client.chat.completions.create(**request)
     
     def run(
         self,
