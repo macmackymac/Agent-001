@@ -344,11 +344,16 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
         if not client:
             return "No LLM client available. Check your API keys.", trace
 
-        available = [t for t in TOOLS if t["function"]["name"] not in disabled]
-
-        request = {"model": model, "messages": messages}
-        if available:
-            request["tools"] = available
+        available = [
+            t for t in TOOLS
+            if t["function"]["name"] not in disabled
+        ]
+        
+        request = runtime.create_request(
+            model=model,
+            messages=messages,
+            available_tools=available,
+        )
 
         try:
             response = client.chat.completions.create(**request)
