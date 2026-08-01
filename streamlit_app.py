@@ -38,7 +38,7 @@ from googleapiclient.discovery import build
 import os
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-st.set_page_config(page_title="Appa", page_icon="assets/Appa_Main.jpg", layout="wide")
+st.set_page_config(page_title="Appa", page_icon="assets/Appa_Main.png", layout="wide")
 initialize_session()
 
 MAX_STEPS = 8
@@ -798,7 +798,7 @@ if prompt := st.chat_input("Ask me anything…"):
     # Display agent response
     from PIL import Image
 
-    assistant_avatar = Image.open("assets/Appa.jpg")
+    assistant_avatar = Image.open("assets/Appa_Chat.png")
     
     with st.chat_message("assistant",avatar=assistant_avatar):
         st.markdown(answer)
