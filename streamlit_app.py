@@ -670,7 +670,7 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
 # ---------------------------------------------------------------------------
 from PIL import Image
 
-icon = Image.open("assets/Appa.jpg")
+icon = Image.open("assets/Appa.png")
 
 col1, col2 = st.columns([1, 15])
 
