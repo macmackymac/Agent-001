@@ -36,6 +36,26 @@ class AgentRuntime:
 
         return messages
     
+    def create_request(
+        self,
+        model: str,
+        messages: list,
+        available_tools: list | None = None,
+    ) -> dict:
+        """
+        Build the request payload for the LLM.
+        """
+    
+        request = {
+            "model": model,
+            "messages": messages,
+        }
+    
+        if available_tools:
+            request["tools"] = available_tools
+    
+        return request
+    
     def run(
         self,
         user_message: str,
