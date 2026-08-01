@@ -24,6 +24,7 @@ from auth.session import (
 from services.gmail_service import GmailService
 from services.drive_service import DriveService
 from services.calendar_service import CalendarService
+from tools.gmail_tools import read_recent_emails
 
 from core.agent_runtime import AgentRuntime
 from core.tools import (
@@ -222,42 +223,6 @@ def search_web(query: str, max_results: int = 5) -> str:
         lines.append(f"{i}. {title}\n   {url}\n   {snippet}")
 
     return "\n".join(lines)
-
-def read_recent_emails(max_results: int = 5) -> str:
-    """Read recent unread emails from Gmail."""
-
-    if (
-        not st.session_state.google_authenticated
-        or not st.session_state.google_credentials
-    ):
-        return (
-            f"{TOOL_ERROR} Gmail not authenticated. "
-            "Connect in the sidebar first."
-        )
-
-    try:
-        gmail = GmailService(
-            st.session_state.google_credentials
-        )
-
-        emails = gmail.get_unread_messages(max_results)
-
-        if not emails:
-            return "No unread emails found."
-
-        output = []
-
-        for email in emails:
-            output.append(
-                f"From: {email['sender']}\n"
-                f"Subject: {email['subject']}"
-            )
-
-        return "\n\n".join(output)
-
-    except Exception as exc:
-        return f"{TOOL_ERROR} could not read emails: {exc}"
-
 
 def save_to_google_drive(filename: str, content: str) -> str:
     """Save a text file to Google Drive."""
@@ -475,11 +440,18 @@ TOOLS = [
     },
 ]
 
+def read_recent_emails_tool(max_results=5):
+    return read_recent_emails(
+        st.session_state.google_authenticated,
+        st.session_state.google_credentials,
+        max_results,
+    )
+
 TOOL_IMPLS = {
     "calculate": calculate,
     "get_current_time": get_current_time,
     "search_web": search_web,
-    "read_recent_emails": read_recent_emails,
+    "read_recent_emails": read_recent_emails_tool,
     "save_to_google_drive": save_to_google_drive,
     "get_calendar_events": get_calendar_events,
     "remember_information": remember_information,
