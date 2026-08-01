@@ -38,7 +38,7 @@ from googleapiclient.discovery import build
 import os
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-st.set_page_config(page_title="Appa", page_icon="assets/Appa.jpg", layout="wide")
+st.set_page_config(page_title="Appa", page_icon="assets/Appa_Main.jpg", layout="wide")
 initialize_session()
 
 MAX_STEPS = 8
