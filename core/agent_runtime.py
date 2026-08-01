@@ -75,3 +75,18 @@ class AgentRuntime:
         raise NotImplementedError(
             "Runtime not implemented yet."
         )
+    
+    def execute_tool(
+        self,
+        implementation,
+        raw_args: str,
+    ):
+        """
+        Execute a registered tool.
+        """
+    
+        import json
+    
+        return implementation(
+            **json.loads(raw_args)
+        )
