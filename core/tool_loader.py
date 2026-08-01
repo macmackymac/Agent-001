@@ -3,6 +3,7 @@ Registers all tools available to APPA.
 """
 
 from core.tool_registry import registry
+from tools.tool_definitions import TOOLS
 
 # Core tools
 from core.tools import (
@@ -21,4 +22,21 @@ def initialize_tools():
     """
     Register every tool available to APPA.
     """
-    pass
+
+    implementations = {
+        "calculate": calculate,
+        "get_current_time": get_current_time,
+        "search_web": search_web,
+        "read_recent_emails": read_recent_emails,
+        "save_to_google_drive": save_to_google_drive,
+        "get_calendar_events": get_calendar_events,
+        "remember_information": remember_information,
+    }
+
+    for tool in TOOLS:
+        name = tool["function"]["name"]
+
+        implementation = implementations.get(name)
+
+        if implementation is not None:
+            registry.register(tool, implementation)
