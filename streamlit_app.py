@@ -25,6 +25,7 @@ from services.gmail_service import GmailService
 from services.drive_service import DriveService
 from services.calendar_service import CalendarService
 from tools.gmail_tools import read_recent_emails
+from tools.drive_tools import save_to_google_drive
 
 from core.agent_runtime import AgentRuntime
 from core.tools import (
@@ -224,37 +225,6 @@ def search_web(query: str, max_results: int = 5) -> str:
 
     return "\n".join(lines)
 
-def save_to_google_drive(filename: str, content: str) -> str:
-    """Save a text file to Google Drive."""
-
-    if (
-        not st.session_state.google_authenticated
-        or not st.session_state.google_credentials
-    ):
-        return (
-            f"{TOOL_ERROR} Google Drive not authenticated. "
-            "Connect in the sidebar first."
-        )
-
-    try:
-        drive = DriveService(
-            st.session_state.google_credentials
-        )
-
-        file = drive.upload_text_file(
-            filename,
-            content,
-        )
-
-        return (
-            f"✅ File '{file['name']}' uploaded successfully.\n\n"
-            f"Drive File ID: {file['id']}\n"
-            f"Link: {file['webViewLink']}"
-        )
-
-    except Exception as exc:
-        return f"{TOOL_ERROR} could not save to Drive: {exc}"
-
 def get_calendar_events(max_results: int = 10) -> str:
     """Read upcoming calendar events."""
 
@@ -447,12 +417,20 @@ def read_recent_emails_tool(max_results=5):
         max_results,
     )
 
+def save_to_google_drive_tool(filename: str, content: str):
+    return save_to_google_drive(
+        st.session_state.google_authenticated,
+        st.session_state.google_credentials,
+        filename,
+        content,
+    )
+
 TOOL_IMPLS = {
     "calculate": calculate,
     "get_current_time": get_current_time,
     "search_web": search_web,
     "read_recent_emails": read_recent_emails_tool,
-    "save_to_google_drive": save_to_google_drive,
+    "save_to_google_drive": save_to_google_drive_tool,
     "get_calendar_events": get_calendar_events,
     "remember_information": remember_information,
 }
