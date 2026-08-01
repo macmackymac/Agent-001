@@ -356,7 +356,10 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
         )
 
         try:
-            response = client.chat.completions.create(**request)
+            response = runtime.execute_request(
+                client=client,
+                request=request,
+            )
         except Exception as exc:
             error_str = str(exc)
             
