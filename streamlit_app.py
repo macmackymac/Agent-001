@@ -669,7 +669,7 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
 # Chat Bubble UI with Persona Selection
 # ---------------------------------------------------------------------------
 
-st.title("🤖 assets/Appa_Main.jpg APPA (Autonomous Personal Productivity Assistant)")
+st.title("🤖 APPA (Autonomous Personal Productivity Assistant)")
 
 # Sidebar
 with st.sidebar:
