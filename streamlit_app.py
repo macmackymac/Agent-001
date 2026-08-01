@@ -689,8 +689,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.title("🤖 APPA (Autonomous Personal Productivity Assistant)")
-
 # Sidebar
 with st.sidebar:
     st.subheader("About")
