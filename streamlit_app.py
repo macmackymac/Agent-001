@@ -603,7 +603,7 @@ with st.sidebar:
     
         # Google authentication
     st.subheader("Google Services")
-    
+
     initialize_session()
     
     query_params = st.query_params
@@ -617,8 +617,10 @@ with st.sidebar:
     
         except Exception as e:
             st.error(f"Google Login Failed: {e}")
-            
+    
+    
     if is_google_authenticated():
+    
         st.caption("✅ Gmail & Drive connected")
     
         if st.button("Disconnect Google"):
@@ -626,7 +628,6 @@ with st.sidebar:
             st.rerun()
     
     else:
-        from auth.google_auth import GoogleAuth
     
         try:
             auth_url = GoogleAuth.authorization_url()
@@ -637,26 +638,45 @@ with st.sidebar:
     
         except Exception as e:
             st.error(f"Google OAuth Error: {e}")
-            
-            st.divider()
-            
-            init_provider_state()
-
-            provider_name = st.session_state.provider.upper()
-            
-            if st.session_state.switched_provider:
-                st.caption(f"**Provider:** {provider_name} (fallback)")
-            else:
-                st.caption(f"**Provider:** {provider_name}")
-            
-            st.divider()
-            
-            if st.button("🗑️ Clear chat"):
-                st.session_state.messages = []
-                st.session_state.switched_provider = False
-                st.session_state.provider = get_primary_provider() or "none"
-                st.session_state.provider_chain = get_provider_chain()
-                st.rerun()
+    
+    
+    # ---------------------------------------------------------------------------
+    # LLM Provider Status
+    # ---------------------------------------------------------------------------
+    
+    st.divider()
+    
+    init_provider_state()
+    
+    provider_name = st.session_state.provider.upper()
+    
+    st.caption(f"**Primary Provider:** {provider_name}")
+    
+    provider_chain = st.session_state.get(
+        "provider_chain",
+        get_provider_chain(),
+    )
+    
+    if provider_chain:
+        st.caption(
+            "**Fallback Chain:** "
+            + " → ".join(provider.upper() for provider in provider_chain)
+        )
+    
+    
+    st.divider()
+    
+    if st.button("🗑️ Clear chat"):
+    
+        st.session_state.messages = []
+    
+        st.session_state.switched_provider = False
+    
+        st.session_state.provider = get_primary_provider() or "none"
+    
+        st.session_state.provider_chain = get_provider_chain()
+    
+        st.rerun()
 
 # Initialize messages in session state
 if "messages" not in st.session_state:
