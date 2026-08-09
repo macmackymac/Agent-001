@@ -578,102 +578,163 @@ st.markdown(
 )
 
 # Sidebar
+# Sidebar
 with st.sidebar:
+
+    # -----------------------------------------------------------------------
+    # About
+    # -----------------------------------------------------------------------
+
     st.subheader("About")
-    st.caption("AI-powered productivity platform designed to help individuals. Powered by: OniCore")
+
+    st.caption(
+        "AI-powered productivity platform designed to help individuals. "
+        "Powered by: OniCore"
+    )
+
     st.divider()
-    
+
+    # -----------------------------------------------------------------------
     # Persona selection
+    # -----------------------------------------------------------------------
+
     personas = load_personas()
+
     if personas:
+
         st.subheader("Persona")
+
         selected_persona = st.selectbox(
             "Choose a persona:",
             list(personas.keys()),
             key="persona_selector"
         )
+
         system_prompt = personas[selected_persona]
+
         st.caption(f"*Using: {selected_persona}*")
+
     else:
+
         selected_persona = "default"
+
         system_prompt = DEFAULT_SYSTEM_PROMPT
+
         st.caption("*No personas found. Using default.*")
 
-    st.divider()
-    
-        # Google authentication
-    st.subheader("Google Services")
 
-    initialize_session()
-    
-    query_params = st.query_params
-    
-    if "code" in query_params:
-        try:
-            GoogleAuth.exchange_code(query_params["code"])
-    
-            st.query_params.clear()
-            st.rerun()
-    
-        except Exception as e:
-            st.error(f"Google Login Failed: {e}")
-    
-    
-    if is_google_authenticated():
-    
-        st.caption("✅ Gmail & Drive connected")
-    
-        if st.button("Disconnect Google"):
-            reset_google_session()
-            st.rerun()
-    
-    else:
-    
-        try:
-            auth_url = GoogleAuth.authorization_url()
-    
-            st.markdown(
-                f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
-            )
-    
-        except Exception as e:
-            st.error(f"Google OAuth Error: {e}")
-    
-    
-    # ---------------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # LLM Provider Status
-    # ---------------------------------------------------------------------------
-    
+    # -----------------------------------------------------------------------
+
     st.divider()
+
+    st.subheader("LLM Provider")
+
     init_provider_state()
+
     provider_name = st.session_state.provider.upper()
-    
-    st.caption(f"**Primary Provider:** {provider_name}")
-    
+
+    st.caption(
+        f"**Primary Provider:** {provider_name}"
+    )
+
     provider_chain = st.session_state.get(
         "provider_chain",
         get_provider_chain(),
     )
-    
+
     if provider_chain:
+
         st.caption(
             "**Fallback Chain:** "
-            + " → ".join(provider.upper() for provider in provider_chain)
+            + " → ".join(
+                provider.upper()
+                for provider in provider_chain
+            )
         )
-    
-    
+
+
+    # -----------------------------------------------------------------------
+    # Google authentication
+    # -----------------------------------------------------------------------
+
     st.divider()
-    
+
+    st.subheader("Google Services")
+
+    initialize_session()
+
+    query_params = st.query_params
+
+    if "code" in query_params:
+
+        try:
+
+            GoogleAuth.exchange_code(
+                query_params["code"]
+            )
+
+            st.query_params.clear()
+
+            st.rerun()
+
+        except Exception as e:
+
+            st.error(
+                f"Google Login Failed: {e}"
+            )
+
+
+    if is_google_authenticated():
+
+        st.caption(
+            "✅ Gmail & Drive connected"
+        )
+
+        if st.button("Disconnect Google"):
+
+            reset_google_session()
+
+            st.rerun()
+
+    else:
+
+        try:
+
+            auth_url = GoogleAuth.authorization_url()
+
+            st.markdown(
+                f"### 📧 [Connect Gmail & Google Drive]({auth_url})"
+            )
+
+        except Exception as e:
+
+            st.error(
+                f"Google OAuth Error: {e}"
+            )
+
+
+    # -----------------------------------------------------------------------
+    # Clear chat
+    # -----------------------------------------------------------------------
+
+    st.divider()
+
     if st.button("🗑️ Clear chat"):
-    
+
         st.session_state.messages = []
-    
+
         st.session_state.switched_provider = False
-    
-        st.session_state.provider = get_primary_provider() or "none"
-    
-        st.session_state.provider_chain = get_provider_chain()
-    
+
+        st.session_state.provider = (
+            get_primary_provider() or "none"
+        )
+
+        st.session_state.provider_chain = (
+            get_provider_chain()
+        )
+
         st.rerun()
 
 # Initialize messages in session state
