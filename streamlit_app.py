@@ -645,9 +645,7 @@ with st.sidebar:
     # ---------------------------------------------------------------------------
     
     st.divider()
-    
     init_provider_state()
-    
     provider_name = st.session_state.provider.upper()
     
     st.caption(f"**Primary Provider:** {provider_name}")
