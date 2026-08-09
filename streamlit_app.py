@@ -95,64 +95,62 @@ def load_personas():
 
 
 # ---------------------------------------------------------------------------
-# Provider logic: Gemini primary, Groq fallback
+# LLM Provider Manager
+# Priority: Ollama -> Gemini -> Groq
 # ---------------------------------------------------------------------------
 
-
-def get_gemini_client():
-    """Create Gemini client if API key exists."""
-    api_key = os.environ.get("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
-    if api_key:
-        return OpenAI(
-            api_key=api_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-        )
-    return None
-
-
-def get_groq_client():
-    """Create Groq client if API key exists."""
-    api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
-    if api_key:
-        return OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-    return None
+from providers.provider_manager import (
+    get_client_and_model,
+    get_provider_chain,
+    get_primary_provider,
+)
 
 
 def init_provider_state():
-    """Initialize provider state in session."""
+    """Initialize LLM provider state in session."""
+
     if "provider" not in st.session_state:
-        st.session_state.provider = "gemini"
-    if "switched_to_groq" not in st.session_state:
-        st.session_state.switched_to_groq = False
+        st.session_state.provider = get_primary_provider() or "none"
+
+    if "switched_provider" not in st.session_state:
+        st.session_state.switched_provider = False
+
+    if "provider_chain" not in st.session_state:
+        st.session_state.provider_chain = get_provider_chain()
 
 
 def get_active_client_and_model():
-    """Return (client, model_name) based on current provider."""
+    """
+    Return the currently selected provider client and model.
+
+    Provider priority:
+        Ollama -> Gemini -> Groq
+    """
+
     init_provider_state()
-    
-    if st.session_state.provider == "gemini":
-        client = get_gemini_client()
-        if client:
-            return client, "gemini-3-flash-preview", "gemini"
-    
-    client = get_groq_client()
+
+    provider = st.session_state.provider
+
+    if provider == "none":
+        return None, None, None
+
+    client, model = get_client_and_model(provider)
+
     if client:
-        return client, "openai/gpt-oss-20b", "groq"
-    
+        return client, model, provider
+
     return None, None, None
 
 
-# Validate that we have at least one key
-
-gemini_available = bool(os.environ.get("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", ""))
-groq_available = bool(os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", ""))
-
-
-if not gemini_available and not groq_available:
-    st.error("THIS IS A TEST MESSAGE")
-    st.stop()
-
+# Validate that we have at least one LLM provider configured.
 init_provider_state()
+
+if st.session_state.provider == "none":
+    st.error(
+        "No LLM provider is configured. "
+        "Configure OLLAMA_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY."
+    )
+    st.stop()
 
 # ---------------------------------------------------------------------------
 # Tools
@@ -323,10 +321,27 @@ def sanitize_messages_for_groq(messages: list) -> list:
     return cleaned
 
 
-def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str, list]:
-    # Cache tool results within this question to avoid repeat calls
+def run_agent(
+    user_message: str,
+    history: list,
+    system_prompt: str
+) -> tuple[str, list]:
+    """
+    Run the APPA agent loop.
+
+    LLM provider priority:
+
+        1. Ollama
+        2. Gemini
+        3. Groq
+
+    If a provider fails during a request, APPA moves to the next
+    configured provider for the remainder of that request.
+    """
+
+    # Cache tool results within this question to avoid repeat calls.
     call_cache = {}
-    
+
     runtime = AgentRuntime()
 
     messages = runtime.prepare_messages(
@@ -339,16 +354,33 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
     failures = {}
     disabled = set()
 
+    # Build the provider chain for this request.
+    provider_chain = get_provider_chain()
+
+    if not provider_chain:
+        return "No LLM provider available. Check your API keys.", trace
+
+    # Start every new user request with the highest-priority provider.
+    active_provider_index = 0
+    active_provider = provider_chain[active_provider_index]
+
     for step_num in range(MAX_STEPS):
-        client, model, provider = get_active_client_and_model()
+
+        # Get the currently active provider.
+        client, model = get_client_and_model(active_provider)
+
         if not client:
-            return "No LLM client available. Check your API keys.", trace
+            return (
+                f"LLM provider '{active_provider}' is not available.",
+                trace,
+            )
 
         available = [
-            t for t in TOOLS
+            t
+            for t in TOOLS
             if t["function"]["name"] not in disabled
         ]
-        
+
         request = runtime.create_request(
             model=model,
             messages=messages,
@@ -360,41 +392,75 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
                 client=client,
                 request=request,
             )
+
         except Exception as exc:
             error_str = str(exc)
-            
-            if "quota" in error_str.lower() and st.session_state.provider == "gemini":
-                if not st.session_state.switched_to_groq:
-                    st.session_state.provider = "groq"
-                    st.session_state.switched_to_groq = True
-                    trace.append(f"[switch] Gemini quota exhausted. Switching to Groq.")
-                    messages = sanitize_messages_for_groq(messages)
-                    
-                    client, model, provider = get_active_client_and_model()
-                    if not client:
-                        return "Groq key not configured. Cannot continue.", trace
-                    
-                    request["model"] = model
+
+            # Try the next configured provider.
+            fallback_succeeded = False
+
+            for next_index in range(
+                active_provider_index + 1,
+                len(provider_chain),
+            ):
+                fallback_provider = provider_chain[next_index]
+
+                fallback_client, fallback_model = get_client_and_model(
+                    fallback_provider
+                )
+
+                if not fallback_client:
+                    continue
+
+                try:
+                    trace.append(
+                        f"[switch] {active_provider.upper()} failed. "
+                        f"Switching to {fallback_provider.upper()}."
+                    )
+
+                    # Update the provider for the remainder of this request.
+                    active_provider_index = next_index
+                    active_provider = fallback_provider
+
+                    request["model"] = fallback_model
                     request["messages"] = messages
-                    try:
-                        response = client.chat.completions.create(**request)
-                    except Exception as retry_exc:
-                        return f"Groq call also failed: {retry_exc}", trace
-                else:
-                    return f"The model call failed: {exc}", trace
-            else:
-                return f"The model call failed: {exc}", trace
+
+                    response = fallback_client.chat.completions.create(
+                        **request
+                    )
+
+                    fallback_succeeded = True
+                    break
+
+                except Exception as fallback_exc:
+                    trace.append(
+                        f"[fallback] {fallback_provider.upper()} failed: "
+                        f"{fallback_exc}"
+                    )
+
+                    continue
+
+            if not fallback_succeeded:
+                return (
+                    f"The model call failed with "
+                    f"{active_provider.upper()}: {error_str}"
+                ), trace
 
         message = response.choices[0].message
 
         if not message.tool_calls:
-            return (message.content or "(empty response)"), trace
+            return (
+                message.content or "(empty response)"
+            ), trace
 
         messages.append(
             {
                 "role": "assistant",
                 "content": message.content,
-                "tool_calls": [_tool_call_payload(tc) for tc in message.tool_calls],
+                "tool_calls": [
+                    _tool_call_payload(tc)
+                    for tc in message.tool_calls
+                ],
             }
         )
 
@@ -405,25 +471,35 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
 
             if impl is None:
                 result = f"{TOOL_ERROR} no tool named {name}."
+
             else:
-                # Check if we've already called this tool with the same arguments
+                # Check if we've already called this tool
+                # with the same arguments.
                 cache_key = f"{name}:{raw_args}"
+
                 if cache_key in call_cache:
-                    result = f"[Using cached result from earlier in this question]\n{call_cache[cache_key]}"
-                    trace.append({
-                        "tool": f"{name} (cached)",
-                        "args": raw_args,
-                        "result": "Returned cached result"
-                    })
+                    result = (
+                        "[Using cached result from earlier in this question]\n"
+                        f"{call_cache[cache_key]}"
+                    )
+
+                    trace.append(
+                        {
+                            "tool": f"{name} (cached)",
+                            "args": raw_args,
+                            "result": "Returned cached result",
+                        }
+                    )
+
                 else:
                     try:
                         result = runtime.execute_tool(
                             implementation=impl,
                             raw_args=raw_args,
                         )
-                    
+
                         call_cache[cache_key] = result
-                    
+
                     except Exception as exc:
                         result = f"{TOOL_ERROR} {exc}"
 
@@ -431,16 +507,26 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
 
             if result.startswith(TOOL_ERROR):
                 failures[name] = failures.get(name, 0) + 1
+
                 if failures[name] >= MAX_TOOL_FAILURES:
                     disabled.add(name)
+
                     result += (
                         " This tool is now unavailable for the rest of this "
                         "question. Answer using what you already have."
                     )
+
             else:
                 failures[name] = 0
 
-            trace.append({"tool": name, "args": raw_args, "result": result})
+            trace.append(
+                {
+                    "tool": name,
+                    "args": raw_args,
+                    "result": result,
+                }
+            )
+
             messages.append(
                 {
                     "role": "tool",
@@ -449,12 +535,23 @@ def run_agent(user_message: str, history: list, system_prompt: str) -> tuple[str
                 }
             )
 
-    client, model, provider = get_active_client_and_model()
-    if client:
-        return _final_answer_without_tools(messages, client, model), trace
-    else:
-        return "Ran out of steps and no client available.", trace
+    # Maximum tool/agent steps reached.
+    client, model = get_client_and_model(active_provider)
 
+    if client:
+        return (
+            _final_answer_without_tools(
+                messages,
+                client,
+                model,
+            ),
+            trace,
+        )
+
+    return (
+        "Ran out of steps and no LLM client is available.",
+        trace,
+    )
 
 # ---------------------------------------------------------------------------
 # Chat Bubble UI with Persona Selection
@@ -544,17 +641,21 @@ with st.sidebar:
             st.divider()
             
             init_provider_state()
+
             provider_name = st.session_state.provider.upper()
-            if st.session_state.switched_to_groq:
-                st.caption(f"**Provider:** {provider_name} (switched)")
+            
+            if st.session_state.switched_provider:
+                st.caption(f"**Provider:** {provider_name} (fallback)")
             else:
                 st.caption(f"**Provider:** {provider_name}")
             
             st.divider()
+            
             if st.button("🗑️ Clear chat"):
                 st.session_state.messages = []
-                st.session_state.switched_to_groq = False
-                st.session_state.provider = "gemini"
+                st.session_state.switched_provider = False
+                st.session_state.provider = get_primary_provider() or "none"
+                st.session_state.provider_chain = get_provider_chain()
                 st.rerun()
 
 # Initialize messages in session state
