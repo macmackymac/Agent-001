@@ -623,35 +623,83 @@ with st.sidebar:
         st.caption("*No personas found. Using default.*")
 
 
-    # -----------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
     # LLM Provider Status
-    # -----------------------------------------------------------------------
-
+    # ---------------------------------------------------------------------------
+    
+    from providers.ollama_provider import (
+        get_ollama_api_key,
+        get_ollama_model,
+        is_ollama_available,
+    )
+    
+    from providers.gemini_provider import (
+        is_gemini_available,
+    )
+    
+    from providers.groq_provider import (
+        is_groq_available,
+    )
+    
     st.divider()
-
+    
     st.subheader("LLM Provider")
-
+    
     init_provider_state()
-
+    
     provider_name = st.session_state.provider.upper()
-
+    
     st.caption(
         f"**Primary Provider:** {provider_name}"
     )
-
+    
     provider_chain = st.session_state.get(
         "provider_chain",
         get_provider_chain(),
     )
-
+    
     if provider_chain:
-
+    
         st.caption(
             "**Fallback Chain:** "
             + " → ".join(
                 provider.upper()
                 for provider in provider_chain
             )
+        )
+    
+    
+    # ---------------------------------------------------------------------------
+    # Temporary Provider Diagnostics
+    # ---------------------------------------------------------------------------
+    
+    with st.expander("🔧 Provider Diagnostics"):
+    
+        ollama_key = get_ollama_api_key()
+    
+        st.write(
+            "**Ollama API key detected:**",
+            "YES" if ollama_key else "NO",
+        )
+    
+        st.write(
+            "**Ollama model:**",
+            get_ollama_model(),
+        )
+    
+        st.write(
+            "**Ollama available:**",
+            "YES" if is_ollama_available() else "NO",
+        )
+    
+        st.write(
+            "**Gemini available:**",
+            "YES" if is_gemini_available() else "NO",
+        )
+    
+        st.write(
+            "**Groq available:**",
+            "YES" if is_groq_available() else "NO",
         )
 
 
