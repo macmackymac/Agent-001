@@ -107,16 +107,29 @@ from providers.provider_manager import (
 
 
 def init_provider_state():
-    """Initialize LLM provider state in session."""
+    """
+    Initialize and synchronize APPA's LLM provider state.
 
-    if "provider" not in st.session_state:
-        st.session_state.provider = get_primary_provider() or "none"
+    Provider priority:
+
+        Ollama -> Gemini -> Groq
+
+    The provider state is synchronized on each Streamlit run so that
+    newly configured higher-priority providers become active without
+    requiring the user to create a new browser session.
+    """
+
+    primary_provider = get_primary_provider()
+    provider_chain = get_provider_chain()
+
+    # Always keep the provider chain synchronized with configuration.
+    st.session_state.provider_chain = provider_chain
+
+    # Keep APPA aligned with the highest-priority available provider.
+    st.session_state.provider = primary_provider or "none"
 
     if "switched_provider" not in st.session_state:
         st.session_state.switched_provider = False
-
-    if "provider_chain" not in st.session_state:
-        st.session_state.provider_chain = get_provider_chain()
 
 
 def get_active_client_and_model():
